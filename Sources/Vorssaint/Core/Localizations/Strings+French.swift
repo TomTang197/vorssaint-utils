@@ -1075,6 +1075,16 @@ extension Strings {
         mouseAccelerationName: "Désactiver l’accélération de la souris",
         mouseAccelerationCaption: "Supprime l’accélération du pointeur pour les souris connectées. Le réglage précédent est restauré à la désactivation ou à la fermeture de Vorssaint.",
         shelfClearOnClose: "Vider à la fermeture",
-        shelfClearOnCloseCaption: "Vide l’étagère uniquement lorsque vous cliquez sur le bouton de fermeture. Le masquage automatique et la réduction conservent les éléments."
+        shelfClearOnCloseCaption: "Vide l’étagère uniquement lorsque vous cliquez sur le bouton de fermeture. Le masquage automatique et la réduction conservent les éléments.",
+        hiDPILabel: "HiDPI",
+        nativeHiDPI: "HiDPI natif",
+        virtualHiDPI: "HiDPI virtuel",
+        standardResolution: "Résolution standard (1x)",
+        resolutionMenuTitle: "Résolution",
+        recoveryKeep: "Conserver les réglages",
+        recoveryRevert: "Rétablir",
+        recoveryCountdownTitle: "Conserver ces réglages d’affichage ?",
+        recoveryCountdownRemaining: { "Rétablissement automatique dans \($0) s" },
+        toggleHiDPICaption: "Basculer la mise à l’échelle Retina HiDPI"
     )
 }
