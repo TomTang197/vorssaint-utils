@@ -1032,6 +1032,16 @@ extension Strings {
         mouseAccelerationName: "Disattiva l’accelerazione del mouse",
         mouseAccelerationCaption: "Rimuove l’accelerazione del puntatore per i mouse collegati. L’impostazione precedente viene ripristinata quando disattivi l’opzione o chiudi Vorssaint.",
         shelfClearOnClose: "Svuota alla chiusura",
-        shelfClearOnCloseCaption: "Svuota lo scaffale solo quando fai clic sul pulsante di chiusura. Se si nasconde automaticamente o viene ridotto, gli elementi restano."
+        shelfClearOnCloseCaption: "Svuota lo scaffale solo quando fai clic sul pulsante di chiusura. Se si nasconde automaticamente o viene ridotto, gli elementi restano.",
+        hiDPILabel: "HiDPI",
+        nativeHiDPI: "HiDPI nativo",
+        virtualHiDPI: "HiDPI virtuale",
+        standardResolution: "Risoluzione standard (1x)",
+        resolutionMenuTitle: "Risoluzione",
+        recoveryKeep: "Mantieni impostazioni",
+        recoveryRevert: "Ripristina",
+        recoveryCountdownTitle: "Mantenere queste impostazioni dello schermo?",
+        recoveryCountdownRemaining: { "Ripristino automatico in \($0) s" },
+        toggleHiDPICaption: "Attiva/disattiva ridimensionamento Retina HiDPI"
     )
 }
