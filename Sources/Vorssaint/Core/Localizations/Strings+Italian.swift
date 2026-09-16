@@ -1084,6 +1084,16 @@ extension Strings {
         shelfClearOnClose: "Svuota alla chiusura",
         shelfClearOnCloseCaption: "Svuota lo scaffale solo quando fai clic sul pulsante di chiusura. Se si nasconde automaticamente o viene ridotto, gli elementi restano.",
         shelfShortcutFinderSelection: "Aggiungi la selezione del Finder con la scorciatoia",
-        shelfShortcutFinderSelectionCaption: "Con il Finder in primo piano, la scorciatoia apre il ripiano con i file selezionati già dentro. Senza selezione si apre come sempre."
+        shelfShortcutFinderSelectionCaption: "Con il Finder in primo piano, la scorciatoia apre il ripiano con i file selezionati già dentro. Senza selezione si apre come sempre.",
+        hiDPILabel: "HiDPI",
+        nativeHiDPI: "HiDPI nativo",
+        virtualHiDPI: "HiDPI virtuale",
+        standardResolution: "Risoluzione standard (1x)",
+        resolutionMenuTitle: "Risoluzione",
+        recoveryKeep: "Mantieni impostazioni",
+        recoveryRevert: "Ripristina",
+        recoveryCountdownTitle: "Mantenere queste impostazioni dello schermo?",
+        recoveryCountdownRemaining: { "Ripristino automatico in \($0) s" },
+        toggleHiDPICaption: "Attiva/disattiva ridimensionamento Retina HiDPI"
     )
 }

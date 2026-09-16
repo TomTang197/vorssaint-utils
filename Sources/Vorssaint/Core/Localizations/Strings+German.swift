@@ -1084,6 +1084,16 @@ extension Strings {
         shelfClearOnClose: "Beim Schließen leeren",
         shelfClearOnCloseCaption: "Leert die Ablage nur, wenn du auf die Schließen-Taste klickst. Automatisches Ausblenden und Einklappen behalten die Objekte.",
         shelfShortcutFinderSelection: "Finder-Auswahl per Kurzbefehl hinzufügen",
-        shelfShortcutFinderSelectionCaption: "Ist der Finder im Vordergrund, öffnet der Kurzbefehl die Ablage bereits mit den ausgewählten Dateien. Ohne Auswahl öffnet sie sich wie gewohnt."
+        shelfShortcutFinderSelectionCaption: "Ist der Finder im Vordergrund, öffnet der Kurzbefehl die Ablage bereits mit den ausgewählten Dateien. Ohne Auswahl öffnet sie sich wie gewohnt.",
+        hiDPILabel: "HiDPI",
+        nativeHiDPI: "Natives HiDPI",
+        virtualHiDPI: "Virtuelles HiDPI",
+        standardResolution: "Standardauflösung (1x)",
+        resolutionMenuTitle: "Auflösung",
+        recoveryKeep: "Einstellungen behalten",
+        recoveryRevert: "Zurücksetzen",
+        recoveryCountdownTitle: "Diese Anzeigeeinstellungen beibehalten?",
+        recoveryCountdownRemaining: { "Automatische Rückkehr in \($0) s" },
+        toggleHiDPICaption: "Retina-HiDPI-Skalierung umschalten"
     )
 }

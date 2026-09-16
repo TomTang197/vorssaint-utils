@@ -1085,6 +1085,16 @@ extension Strings {
         shelfClearOnClose: "關閉時清空",
         shelfClearOnCloseCaption: "只有點按關閉按鈕時才會清空暫存架。自動隱藏或收合時會保留項目。",
         shelfShortcutFinderSelection: "使用快速鍵加入 Finder 所選項目",
-        shelfShortcutFinderSelectionCaption: "Finder 位於前景時，快速鍵會打開暫存架並放入所選檔案。未選取任何項目時照常打開。"
+        shelfShortcutFinderSelectionCaption: "Finder 位於前景時，快速鍵會打開暫存架並放入所選檔案。未選取任何項目時照常打開。",
+        hiDPILabel: "HiDPI",
+        nativeHiDPI: "原生 HiDPI",
+        virtualHiDPI: "虛擬 HiDPI",
+        standardResolution: "標準解析度 (1x)",
+        resolutionMenuTitle: "解析度",
+        recoveryKeep: "保留設定",
+        recoveryRevert: "還原",
+        recoveryCountdownTitle: "保留這個顯示設定？",
+        recoveryCountdownRemaining: { "\($0) 秒後自動恢復" },
+        toggleHiDPICaption: "切換 Retina HiDPI 縮放"
     )
 }

@@ -1288,6 +1288,18 @@ struct Strings {
     let shelfClearOnCloseCaption: String
     let shelfShortcutFinderSelection: String
     let shelfShortcutFinderSelectionCaption: String
+
+    // MARK: Display Resolution & HiDPI
+    public let hiDPILabel: String
+    public let nativeHiDPI: String
+    public let virtualHiDPI: String
+    public let standardResolution: String
+    public let resolutionMenuTitle: String
+    public let recoveryKeep: String
+    public let recoveryRevert: String
+    public let recoveryCountdownTitle: String
+    public let recoveryCountdownRemaining: (Int) -> String
+    public let toggleHiDPICaption: String
 }
 
 // MARK: - Português (Brasil)
@@ -2373,7 +2385,17 @@ extension Strings {
         shelfClearOnClose: "Limpar ao fechar",
         shelfClearOnCloseCaption: "Esvazia a área somente quando você clica no botão de fechar. Ocultar automaticamente e encolher preservam os itens.",
         shelfShortcutFinderSelection: "Adicionar a seleção do Finder com o atalho",
-        shelfShortcutFinderSelectionCaption: "Com o Finder em primeiro plano, o atalho abre a área temporária já com os arquivos selecionados. Sem seleção, ela abre como sempre."
+        shelfShortcutFinderSelectionCaption: "Com o Finder em primeiro plano, o atalho abre a área temporária já com os arquivos selecionados. Sem seleção, ela abre como sempre.",
+        hiDPILabel: "HiDPI",
+        nativeHiDPI: "HiDPI nativo",
+        virtualHiDPI: "HiDPI virtual",
+        standardResolution: "Resolução padrão (1x)",
+        resolutionMenuTitle: "Resolução",
+        recoveryKeep: "Manter alterações",
+        recoveryRevert: "Reverter",
+        recoveryCountdownTitle: "Confirmar ajustes de tela",
+        recoveryCountdownRemaining: { "Revertendo em \($0) s" },
+        toggleHiDPICaption: "Alternar dimensionamento Retina HiDPI"
     )
 }
 
@@ -3460,6 +3482,16 @@ extension Strings {
         shelfClearOnClose: "Clear when closed",
         shelfClearOnCloseCaption: "Empties the shelf only when you click its close button. Automatic hiding and collapsing keep the items.",
         shelfShortcutFinderSelection: "Add the Finder selection with the shortcut",
-        shelfShortcutFinderSelectionCaption: "With Finder in front, the shortcut opens the shelf with the selected files already in it. With nothing selected, it opens as usual."
+        shelfShortcutFinderSelectionCaption: "With Finder in front, the shortcut opens the shelf with the selected files already in it. With nothing selected, it opens as usual.",
+        hiDPILabel: "HiDPI",
+        nativeHiDPI: "Native HiDPI",
+        virtualHiDPI: "Virtual HiDPI",
+        standardResolution: "Standard (1x)",
+        resolutionMenuTitle: "Resolution",
+        recoveryKeep: "Keep Changes",
+        recoveryRevert: "Revert",
+        recoveryCountdownTitle: "Confirm Display Settings",
+        recoveryCountdownRemaining: { "Auto-reverting in \($0)s" },
+        toggleHiDPICaption: "Toggle Retina HiDPI scaling"
     )
 }
