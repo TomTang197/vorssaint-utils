@@ -95,6 +95,7 @@ private final class FanControlController {
     private var lastStopReason: FanControlStopReason?
     private var coolingLevel: Int?
     private var activeConfiguration: FanControlConfiguration?
+    private var downshiftPolicy = FanCoolingDownshiftPolicy()
     private var connectionCount = 0
     private var idleGeneration = 0
     private var timer: DispatchSourceTimer?
@@ -114,6 +115,7 @@ private final class FanControlController {
         queue.async {
             self.connectionCount = max(0, self.connectionCount - 1)
             if self.owner == id, self.isCooling {
+                log.notice("connectionClosed restoring cooling for owner: \(id.uuidString)")
                 _ = self.performRestore(reason: .appDisconnected)
             }
             self.scheduleExitIfIdle()
@@ -249,6 +251,7 @@ private final class FanControlController {
             coolingLevel = level
             activeConfiguration = configuration
             isRecovering = false
+            downshiftPolicy.reset(to: level)
             let uptime = ProcessInfo.processInfo.systemUptime
             endsAt = duration.map { Date().addingTimeInterval($0) }
             endsAtUptime = duration.map { uptime + $0 }
@@ -285,6 +288,7 @@ private final class FanControlController {
             _ = try hardware.updateCooling(level: level)
             activeConfiguration = configuration
             coolingLevel = level
+            downshiftPolicy.reset(to: level)
             let uptime = ProcessInfo.processInfo.systemUptime
             endsAt = duration.map { Date().addingTimeInterval($0) }
             endsAtUptime = duration.map { uptime + $0 }
@@ -313,6 +317,8 @@ private final class FanControlController {
                 temperatures: hardware.readTemperatures(),
                 previousLevel: previousLevel
             )
+        case .fullBlast:
+            return FanControlPolicy.maximumCoolingLevel
         }
     }
 
@@ -360,6 +366,7 @@ private final class FanControlController {
         owner = nil
         coolingLevel = nil
         activeConfiguration = nil
+        downshiftPolicy.reset(to: 0)
         endsAt = nil
         endsAtUptime = nil
         verificationFailures = 0
@@ -367,7 +374,7 @@ private final class FanControlController {
         lastStopReason = reason
         ownership.release()
         stopWatchdogIfIdle()
-        log.notice("Automatic fan control restored")
+        log.notice("Automatic fan control restored, reason: \(reason?.rawValue ?? "nil")")
         return true
     }
 
@@ -414,15 +421,22 @@ private final class FanControlController {
         if activeConfiguration?.mode == .curve,
            let configuration = activeConfiguration,
            let hardware {
-            if let requested = requestedLevel(for: configuration, hardware: hardware,
-                                              previousLevel: coolingLevel) {
+            if let targetLevel = requestedLevel(for: configuration, hardware: hardware,
+                                                previousLevel: coolingLevel) {
                 temperatureFailures = 0
-                if requested == coolingLevel {
+                let decision = downshiftPolicy.decision(
+                    requestedLevel: targetLevel,
+                    now: Date(),
+                    delayEnabled: configuration.downshiftDelayEnabled,
+                    delaySeconds: configuration.downshiftDelaySeconds
+                )
+                let effectiveLevel = decision.level
+                if effectiveLevel == coolingLevel {
                     controlIntact = hardware.coolingIsIntact()
                 } else {
                     do {
-                        _ = try hardware.updateCooling(level: requested)
-                        coolingLevel = requested
+                        _ = try hardware.updateCooling(level: effectiveLevel)
+                        coolingLevel = effectiveLevel
                         controlIntact = true
                     } catch {
                         controlIntact = false
@@ -455,7 +469,10 @@ private final class FanControlController {
             temperatureFailures: temperatureFailures,
             thermalState: ProcessInfo.processInfo.thermalState
         )
-        if let reason { _ = performRestore(reason: reason) }
+        if let reason {
+            log.notice("watchdogTick restoring cooling, reason: \(reason.rawValue)")
+            _ = performRestore(reason: reason)
+        }
     }
 
     private func stopWatchdogIfIdle() {

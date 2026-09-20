@@ -3,6 +3,7 @@
 
 import AppKit
 import Foundation
+import OSLog
 import ServiceManagement
 
 final class FanControlService: ObservableObject {
@@ -14,11 +15,19 @@ final class FanControlService: ObservableObject {
     }
 
     static let shared = FanControlService()
+    private let log = Logger(subsystem: Bundle.main.bundleIdentifier ?? "com.vorssaint.utils", category: "FanControl")
 
     @Published private(set) var accessState: AccessState = .notRegistered
     @Published private(set) var snapshot: FanControlSnapshot = .empty
     @Published private(set) var error: FanControlErrorCode?
     @Published private(set) var isWorking = false
+    @Published private(set) var isGameModeActive = false
+    @Published private(set) var isGameModeUserOverridden = false
+    @Published private(set) var gameModeCooldownRemainingSeconds: Int? = nil
+
+    private let gameModeMonitor = GameModeMonitor()
+    private var gameModePolicy = GameModeFanLinkagePolicy()
+    private var wakeResumePolicy = FanWakeResumePolicy()
 
     private let probeQueue = DispatchQueue(label: "com.vorssaint.fan-control.probe",
                                            qos: .utility)
@@ -30,6 +39,7 @@ final class FanControlService: ObservableObject {
     private var requestGeneration = 0
     private var tickCount = 0
     private var registrationAttemptedVersion: String?
+    private var hasAttemptedAutoRepair = false
     private var observingWorkspace = false
 
     private static var appService: SMAppService {
@@ -44,9 +54,13 @@ final class FanControlService: ObservableObject {
 
     private init() {
         refreshAccessState()
+        setupGameModeMonitoring()
+        log.notice("FanControlService initialized, accessState: \(String(describing: self.accessState))")
+        refresh()
     }
 
     deinit {
+        gameModeMonitor.stopMonitoring()
         NSWorkspace.shared.notificationCenter.removeObserver(self)
         connection?.invalidate()
         timer?.invalidate()
@@ -82,7 +96,7 @@ final class FanControlService: ObservableObject {
     func refresh() {
         refreshAccessState()
         if accessState == .enabled {
-            guard !replaceRegistrationIfNeeded() else { return }
+            guard !replaceRegistration() else { return }
             requestStatus()
         } else {
             refreshLocalProbe()
@@ -95,7 +109,11 @@ final class FanControlService: ObservableObject {
         case .requiresApproval:
             SMAppService.openSystemSettingsLoginItems()
         case .enabled:
-            requestStatus()
+            if error == .helperUnavailable {
+                _ = replaceRegistration(force: true)
+            } else {
+                requestStatus()
+            }
         case .unavailable:
             error = .helperUnavailable
         case .notRegistered:
@@ -114,23 +132,30 @@ final class FanControlService: ObservableObject {
             } catch {
                 isWorking = false
                 refreshAccessState()
-                if accessState == .requiresApproval {
-                    SMAppService.openSystemSettingsLoginItems()
-                } else {
-                    self.error = .helperUnavailable
-                }
+                SMAppService.openSystemSettingsLoginItems()
+                self.error = .helperUnavailable
             }
         }
         startTimerIfNeeded()
     }
 
     func applyConfiguration(_ configuration: FanControlConfiguration) {
+        applyConfiguration(configuration, userInitiated: true)
+    }
+
+    func applyConfiguration(_ configuration: FanControlConfiguration, userInitiated: Bool) {
+        if userInitiated {
+            gameModePolicy.handleUserManualOverride()
+            wakeResumePolicy.handleUserOverride()
+            isGameModeUserOverridden = gameModePolicy.isUserOverridden
+            gameModeCooldownRemainingSeconds = nil
+        }
         guard FanControlPolicy.validConfiguration(configuration) else {
             error = .controlFailed
             return
         }
         if configuration.mode == .system {
-            restoreAutomatic()
+            restoreAutomatic(userInitiated: userInitiated)
             return
         }
         guard accessState == .enabled else { authorize(); return }
@@ -151,7 +176,7 @@ final class FanControlService: ObservableObject {
             self.isWorking = false
             guard let response else {
                 self.error = .helperUnavailable
-                self.restoreAutomatic()
+                self.restoreAutomatic(supersedingCurrentRequest: false)
                 return
             }
             self.apply(response)
@@ -166,6 +191,16 @@ final class FanControlService: ObservableObject {
     }
 
     func restoreAutomatic() {
+        restoreAutomatic(userInitiated: true)
+    }
+
+    func restoreAutomatic(userInitiated: Bool) {
+        if userInitiated {
+            gameModePolicy.handleUserManualOverride()
+            wakeResumePolicy.handleUserOverride()
+            isGameModeUserOverridden = gameModePolicy.isUserOverridden
+            gameModeCooldownRemainingSeconds = nil
+        }
         restoreAutomatic(supersedingCurrentRequest: false)
     }
 
@@ -283,15 +318,25 @@ final class FanControlService: ObservableObject {
     private func requestStatus() {
         guard !requestInFlight else { return }
         let generation = beginRequest()
+        log.notice("requestStatus sent (generation \(generation))")
         send { proxy, reply in proxy.status(withReply: reply) } completion: { response in
             guard self.finishRequest(generation) else { return }
             guard let response else {
+                self.log.error("requestStatus response was nil (helper unavailable)")
+                if !self.hasAttemptedAutoRepair && self.accessState == .enabled {
+                    self.hasAttemptedAutoRepair = true
+                    self.log.notice("XPC failed while accessState is enabled. Attempting auto-repair via replaceRegistration(force: true)...")
+                    if self.replaceRegistration(force: true) {
+                        return
+                    }
+                }
                 self.error = .helperUnavailable
+                self.refreshLocalProbe()
                 return
             }
+            self.hasAttemptedAutoRepair = false
+            self.log.notice("requestStatus succeeded with \(response.snapshot.fans.count) fans")
             self.apply(response)
-            // Any decoded reply proves that the installed helper speaks this
-            // protocol, even when the hardware itself is unsupported.
             UserDefaults.standard.set(Self.helperVersion,
                                       forKey: DefaultsKey.fanControlHelperVersion)
             if response.succeeded, !response.snapshot.isCooling {
@@ -303,10 +348,12 @@ final class FanControlService: ObservableObject {
     private func send(_ operation: @escaping (FanControlXPCProtocol, @escaping (Data) -> Void) -> Void,
                       completion: @escaping (FanControlResponse?) -> Void) {
         var finished = false
+        var timeoutWorkItem: DispatchWorkItem?
         let finish: (FanControlResponse?) -> Void = { response in
             DispatchQueue.main.async {
                 guard !finished else { return }
                 finished = true
+                timeoutWorkItem?.cancel()
                 completion(response)
             }
         }
@@ -322,6 +369,14 @@ final class FanControlService: ObservableObject {
             finish(nil)
             return
         }
+        let timer = DispatchWorkItem { [weak self] in
+            guard !finished else { return }
+            self?.connection?.invalidate()
+            self?.connection = nil
+            finish(nil)
+        }
+        timeoutWorkItem = timer
+        DispatchQueue.main.asyncAfter(deadline: .now() + 10, execute: timer)
         operation(proxy) { data in
             finish(FanControlIPC.decode(data))
         }
@@ -405,31 +460,34 @@ final class FanControlService: ObservableObject {
     /// Apple requires a changed embedded daemon to be unregistered before it
     /// is registered again. This runs once per app build and only when the user
     /// opens an already-authorized Fan Control surface.
-    private func replaceRegistrationIfNeeded() -> Bool {
+    @discardableResult
+    private func replaceRegistration(force: Bool = false) -> Bool {
         let installed = UserDefaults.standard.string(forKey: DefaultsKey.fanControlHelperVersion) ?? ""
         let current = Self.helperVersion
-        guard !installed.isEmpty, installed != current,
-              registrationAttemptedVersion != current,
+        log.notice("replaceRegistration checking installed: '\(installed)' vs current: '\(current)', force: \(force)")
+        guard force || (installed != current && registrationAttemptedVersion != current),
               !UserDefaults.standard.bool(forKey: DefaultsKey.fanControlRecoveryNeeded) else { return false }
         registrationAttemptedVersion = current
         isWorking = true
-        Self.appService.unregister { error in
-            DispatchQueue.main.async {
-                guard error == nil else {
-                    self.isWorking = false
-                    self.error = .helperUnavailable
-                    return
-                }
+        log.notice("Unregistering daemon...")
+        Self.appService.unregister { unregisterError in
+            self.log.notice("Unregistered daemon result: \(String(describing: unregisterError))")
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
                 do {
+                    self.log.notice("Registering daemon...")
                     try Self.appService.register()
                     UserDefaults.standard.set(current, forKey: DefaultsKey.fanControlHelperVersion)
                     self.isWorking = false
+                    self.error = nil
                     self.refreshAccessState()
+                    self.log.notice("Registered daemon successfully, new accessState: \(String(describing: self.accessState))")
                     if self.accessState == .enabled { self.requestStatus() }
                 } catch {
                     self.isWorking = false
+                    self.registrationAttemptedVersion = nil
                     self.refreshAccessState()
                     self.error = .helperUnavailable
+                    self.log.error("Failed to register daemon: \(error.localizedDescription)")
                 }
             }
         }
@@ -437,6 +495,7 @@ final class FanControlService: ObservableObject {
     }
 
     private func refreshLocalProbe() {
+        log.notice("refreshLocalProbe called")
         probeQueue.async {
             if self.probeHardware == nil { self.probeHardware = FanControlHardware() }
             let result: Result<FanControlSnapshot, FanControlErrorCode>
@@ -446,10 +505,14 @@ final class FanControlService: ObservableObject {
                 return
             }
             do {
-                result = .success(try probe.readOnlySnapshot())
+                let snap = try probe.readOnlySnapshot()
+                self.log.notice("refreshLocalProbe succeeded with \(snap.fans.count) fans")
+                result = .success(snap)
             } catch FanControlHardwareError.noFans {
+                self.log.notice("refreshLocalProbe: noFans")
                 result = .failure(.noFans)
             } catch FanControlHardwareError.alreadyControlled {
+                self.log.notice("refreshLocalProbe: alreadyControlled")
                 if let snapshot = try? probe.telemetrySnapshot() {
                     DispatchQueue.main.async {
                         self.applyProbeSnapshot(snapshot, error: .alreadyControlled)
@@ -458,6 +521,7 @@ final class FanControlService: ObservableObject {
                 }
                 result = .failure(.alreadyControlled)
             } catch {
+                self.log.notice("refreshLocalProbe: error \(error.localizedDescription)")
                 if let snapshot = try? probe.telemetrySnapshot() {
                     DispatchQueue.main.async {
                         self.applyProbeSnapshot(snapshot, error: .unsupportedHardware)
@@ -471,7 +535,7 @@ final class FanControlService: ObservableObject {
     }
 
     private func applyProbe(_ result: Result<FanControlSnapshot, FanControlErrorCode>) {
-        guard accessState != .enabled else { return }
+        guard accessState != .enabled || error == .helperUnavailable else { return }
         switch result {
         case .success(let snapshot):
             applyProbeSnapshot(snapshot,
@@ -485,9 +549,11 @@ final class FanControlService: ObservableObject {
 
     private func applyProbeSnapshot(_ snapshot: FanControlSnapshot,
                                     error: FanControlErrorCode?) {
-        guard accessState != .enabled else { return }
+        guard accessState != .enabled || self.error == .helperUnavailable else { return }
         self.snapshot = snapshot
-        self.error = error
+        if self.error != .helperUnavailable {
+            self.error = error
+        }
     }
 
     private func restoreThenUnregister() {
@@ -529,16 +595,175 @@ final class FanControlService: ObservableObject {
         }
     }
 
+    // MARK: - Game Mode & Wake Resume Linkage
+
+    private var isGameModeLinkageEnabled: Bool {
+        UserDefaults.standard.bool(forKey: DefaultsKey.fanControlGameModeLinkageEnabled)
+    }
+
+    private var gameModeExitDelay: TimeInterval {
+        let val = UserDefaults.standard.double(forKey: DefaultsKey.fanControlGameModeExitDelaySeconds)
+        return val > 0 ? val : 60
+    }
+
+    private var isCooldownActive: Bool {
+        gameModeCooldownRemainingSeconds != nil
+    }
+
+    private var isWakeResumePending: Bool {
+        if case .waking = wakeResumePolicy.state {
+            return true
+        }
+        return false
+    }
+
+    private func setupGameModeMonitoring() {
+        gameModeMonitor.onGameModeChanged = { [weak self] isActive in
+            DispatchQueue.main.async {
+                self?.handleGameModeChanged(isActive: isActive)
+            }
+        }
+    }
+
+    private func handleGameModeChanged(isActive: Bool) {
+        let decision = gameModePolicy.handleGameModeChange(
+            isActive: isActive,
+            now: Date(),
+            enabled: isGameModeLinkageEnabled,
+            exitDelay: gameModeExitDelay
+        )
+        applyGameModeDecision(decision)
+    }
+
+    private func applyGameModeDecision(_ decision: GameModeLinkageDecision) {
+        isGameModeActive = decision.isGamingActive
+        isGameModeUserOverridden = gameModePolicy.isUserOverridden
+        if let remaining = decision.remainingCooldown {
+            gameModeCooldownRemainingSeconds = Int(ceil(remaining))
+        } else {
+            gameModeCooldownRemainingSeconds = nil
+        }
+
+        switch decision.action {
+        case .none:
+            break
+        case .switchTarget(.performance):
+            let curvesStorage = UserDefaults.standard.string(forKey: DefaultsKey.fanControlCurves) ?? ""
+            let curves = FanControlConfiguration.decodeCurves(curvesStorage) ?? [FanControlConfiguration.defaultCurve]
+            let downshiftEnabled = UserDefaults.standard.bool(forKey: DefaultsKey.fanControlDownshiftDelayEnabled)
+            let downshiftSeconds = UserDefaults.standard.double(forKey: DefaultsKey.fanControlDownshiftDelaySeconds)
+            applyConfiguration(
+                .curve(
+                    curves,
+                    downshiftDelayEnabled: downshiftEnabled,
+                    downshiftDelaySeconds: downshiftSeconds > 0 ? downshiftSeconds : 10
+                ),
+                userInitiated: false
+            )
+        case .switchTarget(.systemAuto):
+            restoreAutomatic(userInitiated: false)
+        }
+
+        if decision.isCooldownActive || decision.isGamingActive {
+            startTimerIfNeeded()
+        }
+    }
+
+    func resumeGameModeLinkage() {
+        let decision = gameModePolicy.resumeGameLinkage(enabled: isGameModeLinkageEnabled)
+        applyGameModeDecision(decision)
+    }
+
+    func skipGameModeCooldown() {
+        guard gameModeCooldownRemainingSeconds != nil else { return }
+        let decision = gameModePolicy.handleTimerTick(
+            now: Date().addingTimeInterval(gameModeExitDelay + 1),
+            enabled: isGameModeLinkageEnabled,
+            exitDelay: gameModeExitDelay
+        )
+        applyGameModeDecision(decision)
+    }
+
+    func gameModeSettingsChanged() {
+        let decision = gameModePolicy.handleSettingsChanged(
+            enabled: isGameModeLinkageEnabled,
+            exitDelay: gameModeExitDelay,
+            now: Date()
+        )
+        applyGameModeDecision(decision)
+    }
+
+    private func evaluateSensorFreshness() -> Bool {
+        if probeHardware == nil { probeHardware = FanControlHardware() }
+        guard let probe = probeHardware else { return false }
+        let temps = probe.readTemperatures()
+        guard !temps.isEmpty else { return false }
+        return temps.allSatisfy { FanControlPolicy.validTemperature($0.celsius) }
+    }
+
+    private func tickWakeResume() {
+        let isFresh = evaluateSensorFreshness()
+        let action = wakeResumePolicy.handleSample(isFresh: isFresh)
+        switch action {
+        case .none, .restoreSystemAuto:
+            break
+        case .resume(let mode):
+            resumeModeAfterWake(mode)
+        }
+    }
+
+    private func resumeModeAfterWake(_ mode: FanControlMode) {
+        switch mode {
+        case .system:
+            break
+        case .manual:
+            let level = UserDefaults.standard.integer(forKey: DefaultsKey.fanControlCoolingLevel)
+            let effectiveLevel = FanControlPolicy.validCoolingLevel(level) ? level : FanControlPolicy.defaultCoolingLevel
+            applyConfiguration(.manual(level: effectiveLevel), userInitiated: false)
+        case .curve:
+            let curvesStorage = UserDefaults.standard.string(forKey: DefaultsKey.fanControlCurves) ?? ""
+            let curves = FanControlConfiguration.decodeCurves(curvesStorage) ?? [FanControlConfiguration.defaultCurve]
+            let downshiftEnabled = UserDefaults.standard.bool(forKey: DefaultsKey.fanControlDownshiftDelayEnabled)
+            let downshiftSeconds = UserDefaults.standard.double(forKey: DefaultsKey.fanControlDownshiftDelaySeconds)
+            applyConfiguration(
+                .curve(
+                    curves,
+                    downshiftDelayEnabled: downshiftEnabled,
+                    downshiftDelaySeconds: downshiftSeconds > 0 ? downshiftSeconds : 10
+                ),
+                userInitiated: false
+            )
+        case .fullBlast:
+            applyConfiguration(.fullBlast(), userInitiated: false)
+        }
+    }
+
     // MARK: - Timers and system state
 
     private func startTimerIfNeeded() {
         guard panelIsVisible || snapshot.isCooling
-                || UserDefaults.standard.bool(forKey: DefaultsKey.fanControlRecoveryNeeded) else { return }
+                || UserDefaults.standard.bool(forKey: DefaultsKey.fanControlRecoveryNeeded)
+                || isCooldownActive
+                || isWakeResumePending else { return }
         startObservingSystemState()
         guard timer == nil else { return }
         timer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
             guard let self else { return }
             self.tickCount += 1
+
+            if self.isCooldownActive {
+                let decision = self.gameModePolicy.handleTimerTick(
+                    now: Date(),
+                    enabled: self.isGameModeLinkageEnabled,
+                    exitDelay: self.gameModeExitDelay
+                )
+                self.applyGameModeDecision(decision)
+            }
+
+            if self.isWakeResumePending {
+                self.tickWakeResume()
+            }
+
             if self.snapshot.isCooling {
                 self.heartbeat()
             } else if self.panelIsVisible, self.error != .controlFailed,
@@ -555,7 +780,9 @@ final class FanControlService: ObservableObject {
 
     private func stopIdleWorkIfPossible() {
         guard !panelIsVisible, !snapshot.isCooling,
-              !UserDefaults.standard.bool(forKey: DefaultsKey.fanControlRecoveryNeeded) else { return }
+              !UserDefaults.standard.bool(forKey: DefaultsKey.fanControlRecoveryNeeded),
+              !isCooldownActive,
+              !isWakeResumePending else { return }
         timer?.invalidate()
         timer = nil
         connection?.invalidate()
@@ -580,16 +807,20 @@ final class FanControlService: ObservableObject {
     }
 
     @objc private func workspaceWillSleep() {
-        if UserDefaults.standard.bool(forKey: DefaultsKey.fanControlRecoveryNeeded) {
+        let activeMode = snapshot.configuration?.mode ?? .system
+        _ = wakeResumePolicy.handleWillSleep(activeMode: activeMode)
+        if UserDefaults.standard.bool(forKey: DefaultsKey.fanControlRecoveryNeeded) || activeMode != .system {
             restoreAutomatic(supersedingCurrentRequest: true)
         }
     }
 
     @objc private func workspaceDidWake() {
+        wakeResumePolicy.handleDidWake()
         if UserDefaults.standard.bool(forKey: DefaultsKey.fanControlRecoveryNeeded) {
             restoreAutomatic(supersedingCurrentRequest: true)
         } else if panelIsVisible {
             refresh()
         }
+        startTimerIfNeeded()
     }
 }

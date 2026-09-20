@@ -15,10 +15,15 @@ enum FanControlIdentifiers {
     static let helperID = "\(appBundleID).fan-control"
     static let plistName = "\(helperID).plist"
 
+    #if VORSSAINT_DEVELOPMENT
+    static let appCodeRequirement = "identifier \"\(appBundleID)\""
+    static let helperCodeRequirement = "identifier \"\(helperID)\""
+    #else
     static let appCodeRequirement =
         "anchor apple generic and certificate leaf[subject.OU] = \"\(teamID)\" and identifier \"\(appBundleID)\""
     static let helperCodeRequirement =
         "anchor apple generic and certificate leaf[subject.OU] = \"\(teamID)\" and identifier \"\(helperID)\""
+    #endif
 }
 
 @objc protocol FanControlXPCProtocol {

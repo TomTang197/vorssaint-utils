@@ -22,6 +22,8 @@ struct MonitorSettings: View {
     @AppStorage(DefaultsKey.temperatureUnit) private var temperatureUnit = TemperatureUnit.celsius.rawValue
     @AppStorage(DefaultsKey.monitorMemoryMetric) private var memoryMetric = "used"
     @AppStorage(DefaultsKey.panelShowFanControl) private var showFanControl = true
+    @AppStorage(DefaultsKey.fanControlGameModeLinkageEnabled) private var fanControlGameModeLinkage = false
+    @AppStorage(DefaultsKey.fanControlDownshiftDelayEnabled) private var fanControlDownshiftDelay = true
 
     @AppStorage(DefaultsKey.monitorGraphCPU) private var graphCPU = true
     @AppStorage(DefaultsKey.monitorGraphGPU) private var graphGPU = true
@@ -217,6 +219,11 @@ struct MonitorSettings: View {
                         caption: fanStrings.settingsCaption) {
                 Toggle(fanStrings.showInPanel, isOn: $showFanControl).labelsHidden()
             }
+            Toggle(fanStrings.gameModeLinkage, isOn: $fanControlGameModeLinkage)
+                .onChange(of: fanControlGameModeLinkage) { _, _ in
+                    FanControlService.shared.gameModeSettingsChanged()
+                }
+            Toggle(fanStrings.downshiftDelay, isOn: $fanControlDownshiftDelay)
             Text(l10n.s.betaFeatureWarning)
                 .font(.caption)
                 .foregroundStyle(.secondary)

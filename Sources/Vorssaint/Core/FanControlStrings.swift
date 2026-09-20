@@ -46,6 +46,14 @@ struct FanControlFeatureStrings {
     let hottestCPU: String
     let hottestGPU: String
     let helperUnavailable: String
+    let modeFullBlast: String
+    let gameModeLinkage: String
+    let gameModeActive: String
+    let gameModeCooldownFormat: String
+    let resumeLinkage: String
+    let downshiftDelay: String
+    let downshiftDelaySecondsFormat: String
+    let skipCooldown: String
 }
 
 extension FeatureStrings {
@@ -111,7 +119,15 @@ extension FanControlFeatureStrings {
         averageCPU: "Average CPU",
         hottestCPU: "Hottest CPU",
         hottestGPU: "Hottest GPU",
-        helperUnavailable: "The protected fan controller is unavailable. Allow Vorssaint in Login Items, then try again."
+        helperUnavailable: "The protected fan controller is unavailable. Allow Vorssaint in Login Items, then try again.",
+        modeFullBlast: "Max",
+        gameModeLinkage: "Game Mode linkage",
+        gameModeActive: "Gaming active · Linked to custom curve",
+        gameModeCooldownFormat: "Cooling down (%ds remaining)",
+        resumeLinkage: "Resume linkage",
+        downshiftDelay: "Downshift delay",
+        downshiftDelaySecondsFormat: "%d seconds",
+        skipCooldown: "Skip cooldown"
     )
 
     static let ptBR = FanControlFeatureStrings(
@@ -156,7 +172,15 @@ extension FanControlFeatureStrings {
         averageCPU: "Média da CPU",
         hottestCPU: "CPU mais quente",
         hottestGPU: "GPU mais quente",
-        helperUnavailable: "O controlador protegido das ventoinhas não está disponível. Permita o Vorssaint nos Itens de Início e tente novamente."
+        helperUnavailable: "O controlador protegido das ventoinhas não está disponível. Permita o Vorssaint nos Itens de Início e tente novamente.",
+        modeFullBlast: "Máximo",
+        gameModeLinkage: "Vinculação com Modo de Jogo",
+        gameModeActive: "Jogo ativo · Vinculado à curva personalizada",
+        gameModeCooldownFormat: "Esfriando (%d s restantes)",
+        resumeLinkage: "Retomar vinculação",
+        downshiftDelay: "Atraso de redução",
+        downshiftDelaySecondsFormat: "%d segundos",
+        skipCooldown: "Pular resfriamento"
     )
 
     static let tr = FanControlFeatureStrings(
@@ -201,7 +225,15 @@ extension FanControlFeatureStrings {
         averageCPU: "Ortalama CPU",
         hottestCPU: "En sıcak CPU",
         hottestGPU: "En sıcak GPU",
-        helperUnavailable: "Korumalı fan denetleyicisi kullanılamıyor. Giriş Öğeleri’nde Vorssaint’e izin verip yeniden deneyin."
+        helperUnavailable: "Korumalı fan denetleyicisi kullanılamıyor. Giriş Öğeleri’nde Vorssaint’e izin verip yeniden deneyin.",
+        modeFullBlast: "Maksimum",
+        gameModeLinkage: "Oyun Modu bağlantısı",
+        gameModeActive: "Oyun aktif · Özel eğriye bağlı",
+        gameModeCooldownFormat: "Soğutuluyor (%d sn kaldı)",
+        resumeLinkage: "Bağlantıyı sürdür",
+        downshiftDelay: "Vites düşürme gecikmesi",
+        downshiftDelaySecondsFormat: "%d saniye",
+        skipCooldown: "Soğutmayı atla"
     )
 
     static let ru = FanControlFeatureStrings(
@@ -246,7 +278,15 @@ extension FanControlFeatureStrings {
         averageCPU: "Средняя CPU",
         hottestCPU: "Самая горячая CPU",
         hottestGPU: "Самая горячая GPU",
-        helperUnavailable: "Защищённый контроллер вентиляторов недоступен. Разрешите Vorssaint в Объектах входа и повторите попытку."
+        helperUnavailable: "Защищённый контроллер вентиляторов недоступен. Разрешите Vorssaint в Объектах входа и повторите попытку.",
+        modeFullBlast: "Максимум",
+        gameModeLinkage: "Связка с Игровым режимом",
+        gameModeActive: "В игре · Связано с пользовательской кривой",
+        gameModeCooldownFormat: "Остывание (осталось %d с)",
+        resumeLinkage: "Возобновить связку",
+        downshiftDelay: "Задержка снижения скорости",
+        downshiftDelaySecondsFormat: "%d сек",
+        skipCooldown: "Пропустить охлаждение"
     )
 
     static let es = FanControlFeatureStrings(
@@ -291,7 +331,15 @@ extension FanControlFeatureStrings {
         averageCPU: "Promedio de CPU",
         hottestCPU: "CPU más caliente",
         hottestGPU: "GPU más caliente",
-        helperUnavailable: "El controlador protegido de los ventiladores no está disponible. Permite Vorssaint en Ítems de inicio e inténtalo de nuevo."
+        helperUnavailable: "El controlador protegido de los ventiladores no está disponible. Permite Vorssaint en Ítems de inicio e inténtalo de nuevo.",
+        modeFullBlast: "Máximo",
+        gameModeLinkage: "Vinculación con Modo de juego",
+        gameModeActive: "Juego activo · Vinculado a curva personalizada",
+        gameModeCooldownFormat: "Enfriando (%d s restantes)",
+        resumeLinkage: "Reanudar vinculación",
+        downshiftDelay: "Retardo de reducción",
+        downshiftDelaySecondsFormat: "%d segundos",
+        skipCooldown: "Omitir enfriamiento"
     )
 
     static let de = FanControlFeatureStrings(
@@ -336,7 +384,15 @@ extension FanControlFeatureStrings {
         averageCPU: "CPU-Durchschnitt",
         hottestCPU: "Heißeste CPU",
         hottestGPU: "Heißeste GPU",
-        helperUnavailable: "Die geschützte Lüftersteuerung ist nicht verfügbar. Erlaube Vorssaint unter Anmeldeobjekte und versuche es erneut."
+        helperUnavailable: "Die geschützte Lüftersteuerung ist nicht verfügbar. Erlaube Vorssaint unter Anmeldeobjekte und versuche es erneut.",
+        modeFullBlast: "Maximum",
+        gameModeLinkage: "Spielmodus-Verknüpfung",
+        gameModeActive: "Spiel aktiv · Mit benutzerdefinierter Kurve verknüpft",
+        gameModeCooldownFormat: "Abkühlung (noch %d s)",
+        resumeLinkage: "Verknüpfung fortsetzen",
+        downshiftDelay: "Herunterschalt-Verzögerung",
+        downshiftDelaySecondsFormat: "%d Sekunden",
+        skipCooldown: "Abkühlung überspringen"
     )
 
     static let fr = FanControlFeatureStrings(
@@ -381,7 +437,15 @@ extension FanControlFeatureStrings {
         averageCPU: "Moyenne du CPU",
         hottestCPU: "CPU le plus chaud",
         hottestGPU: "GPU le plus chaud",
-        helperUnavailable: "Le contrôleur protégé des ventilateurs est indisponible. Autorisez Vorssaint dans Ouverture, puis réessayez."
+        helperUnavailable: "Le contrôleur protégé des ventilateurs est indisponible. Autorisez Vorssaint dans Ouverture, puis réessayez.",
+        modeFullBlast: "Maximum",
+        gameModeLinkage: "Liaison avec le Mode Jeu",
+        gameModeActive: "Jeu actif · Lié à la courbe personnalisée",
+        gameModeCooldownFormat: "Refroidissement (reste %d s)",
+        resumeLinkage: "Reprendre la liaison",
+        downshiftDelay: "Délai de rétrogradation",
+        downshiftDelaySecondsFormat: "%d secondes",
+        skipCooldown: "Passer le refroidissement"
     )
 
     static let it = FanControlFeatureStrings(
@@ -426,7 +490,15 @@ extension FanControlFeatureStrings {
         averageCPU: "Media CPU",
         hottestCPU: "CPU più calda",
         hottestGPU: "GPU più calda",
-        helperUnavailable: "Il controller protetto delle ventole non è disponibile. Consenti Vorssaint negli elementi di login e riprova."
+        helperUnavailable: "Il controller protetto delle ventole non è disponibile. Consenti Vorssaint negli elementi di login e riprova.",
+        modeFullBlast: "Massimo",
+        gameModeLinkage: "Collegamento con la Modalità Gioco",
+        gameModeActive: "Gioco attivo · Collegato alla curva personalizzata",
+        gameModeCooldownFormat: "Raffreddamento (%d s rimanenti)",
+        resumeLinkage: "Riprendi collegamento",
+        downshiftDelay: "Ritardo riduzione velocità",
+        downshiftDelaySecondsFormat: "%d secondi",
+        skipCooldown: "Salta raffreddamento"
     )
 
     static let ja = FanControlFeatureStrings(
@@ -471,7 +543,15 @@ extension FanControlFeatureStrings {
         averageCPU: "CPU平均",
         hottestCPU: "最高CPU",
         hottestGPU: "最高GPU",
-        helperUnavailable: "保護されたファンコントローラを利用できません。ログイン項目でVorssaintを許可してから、もう一度お試しください。"
+        helperUnavailable: "保護されたファンコントローラを利用できません。ログイン項目でVorssaintを許可してから、もう一度お試しください。",
+        modeFullBlast: "フル回転",
+        gameModeLinkage: "ゲームモード連携",
+        gameModeActive: "ゲーム中 · カスタム曲線連動",
+        gameModeCooldownFormat: "冷却中 (残り %d 秒)",
+        resumeLinkage: "連携を再開",
+        downshiftDelay: "減速ディレイ",
+        downshiftDelaySecondsFormat: "%d 秒",
+        skipCooldown: "冷却をスキップ"
     )
 
     static let ko = FanControlFeatureStrings(
@@ -516,7 +596,15 @@ extension FanControlFeatureStrings {
         averageCPU: "평균 CPU",
         hottestCPU: "가장 뜨거운 CPU",
         hottestGPU: "가장 뜨거운 GPU",
-        helperUnavailable: "보호된 팬 컨트롤러를 사용할 수 없습니다. 로그인 항목에서 Vorssaint를 허용한 다음 다시 시도하세요."
+        helperUnavailable: "보호된 팬 컨트롤러를 사용할 수 없습니다. 로그인 항목에서 Vorssaint를 허용한 다음 다시 시도하세요.",
+        modeFullBlast: "최대",
+        gameModeLinkage: "게임 모드 연동",
+        gameModeActive: "게임 실행 중 · 사용자 지정 곡선 연동",
+        gameModeCooldownFormat: "지연 냉각 중 (%d초 남음)",
+        resumeLinkage: "연동 재개",
+        downshiftDelay: "감속 지연",
+        downshiftDelaySecondsFormat: "%d초",
+        skipCooldown: "냉각 건너뛰기"
     )
 
     static let zhHans = FanControlFeatureStrings(
@@ -561,7 +649,15 @@ extension FanControlFeatureStrings {
         averageCPU: "CPU平均温度",
         hottestCPU: "CPU最高温度",
         hottestGPU: "GPU最高温度",
-        helperUnavailable: "受保护的风扇控制器不可用。请在登录项中允许 Vorssaint，然后重试。"
+        helperUnavailable: "受保护的风扇控制器不可用。请在登录项中允许 Vorssaint，然后重试。",
+        modeFullBlast: "全速",
+        gameModeLinkage: "游戏模式联动",
+        gameModeActive: "游戏中 · 联动自定义曲线",
+        gameModeCooldownFormat: "延时冷却中 (剩余 %d 秒)",
+        resumeLinkage: "恢复联动",
+        downshiftDelay: "降速延迟防抖",
+        downshiftDelaySecondsFormat: "%d 秒",
+        skipCooldown: "跳过冷却"
     )
 
     static let zhTW = FanControlFeatureStrings(
@@ -606,7 +702,15 @@ extension FanControlFeatureStrings {
         averageCPU: "CPU平均溫度",
         hottestCPU: "CPU最高溫度",
         hottestGPU: "GPU最高溫度",
-        helperUnavailable: "受保護的風扇控制器無法使用。請在登入項目中允許 Vorssaint，然後再試一次。"
+        helperUnavailable: "受保護的風扇控制器無法使用。請在登入項目中允許 Vorssaint，然後再試一次。",
+        modeFullBlast: "全速",
+        gameModeLinkage: "遊戲模式聯動",
+        gameModeActive: "遊戲中 · 聯動自訂曲線",
+        gameModeCooldownFormat: "延時冷卻中 (剩餘 %d 秒)",
+        resumeLinkage: "恢復聯動",
+        downshiftDelay: "降速延遲防抖",
+        downshiftDelaySecondsFormat: "%d 秒",
+        skipCooldown: "略過冷卻"
     )
 
     static let zhHK = FanControlFeatureStrings(
@@ -651,6 +755,14 @@ extension FanControlFeatureStrings {
         averageCPU: "CPU平均溫度",
         hottestCPU: "CPU最高溫度",
         hottestGPU: "GPU最高溫度",
-        helperUnavailable: "受保護的風扇控制器無法使用。請在登入項目允許 Vorssaint，然後再試一次。"
+        helperUnavailable: "受保護的風扇控制器無法使用。請在登入項目允許 Vorssaint，然後再試一次。",
+        modeFullBlast: "全速",
+        gameModeLinkage: "遊戲模式聯動",
+        gameModeActive: "遊戲中 · 聯動自訂曲線",
+        gameModeCooldownFormat: "延時冷卻中 (剩餘 %d 秒)",
+        resumeLinkage: "恢復聯動",
+        downshiftDelay: "降速延遲防抖",
+        downshiftDelaySecondsFormat: "%d 秒",
+        skipCooldown: "略過冷卻"
     )
 }

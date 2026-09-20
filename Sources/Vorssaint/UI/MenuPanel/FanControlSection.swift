@@ -13,6 +13,9 @@ struct FanControlSection: View {
         FanControlConfiguration.defaultCurvesStorage
     @AppStorage(DefaultsKey.temperatureUnit) private var temperatureUnit =
         TemperatureUnit.celsius.rawValue
+    @AppStorage(DefaultsKey.fanControlGameModeLinkageEnabled) private var gameModeLinkageEnabled = false
+    @AppStorage(DefaultsKey.fanControlDownshiftDelayEnabled) private var downshiftDelayEnabled = true
+    @AppStorage(DefaultsKey.fanControlDownshiftDelaySeconds) private var downshiftDelaySeconds = 10
     var collapsible = true
 
     private var strings: FanControlFeatureStrings {
@@ -31,9 +34,23 @@ struct FanControlSection: View {
                                   coolingLevel: $coolingLevel,
                                   curves: curvesBinding,
                                   temperatureUnit: displayTemperatureUnit,
+                                  gameModeLinkageEnabled: Binding(
+                                      get: { gameModeLinkageEnabled },
+                                      set: {
+                                          gameModeLinkageEnabled = $0
+                                          service.gameModeSettingsChanged()
+                                      }
+                                  ),
+                                  downshiftDelayEnabled: $downshiftDelayEnabled,
+                                  downshiftDelaySeconds: $downshiftDelaySeconds,
+                                  isGameModeActive: service.isGameModeActive,
+                                  isGameModeUserOverridden: service.isGameModeUserOverridden,
+                                  gameModeCooldownRemainingSeconds: service.gameModeCooldownRemainingSeconds,
                                   authorize: service.authorize,
                                   applyConfiguration: service.applyConfiguration,
-                                  stopCooling: service.restoreAutomatic)
+                                  stopCooling: service.restoreAutomatic,
+                                  resumeGameModeLinkage: service.resumeGameModeLinkage,
+                                  skipGameModeCooldown: service.skipGameModeCooldown)
                 .panelCard()
                 .onAppear { service.panelDidAppear() }
                 .onDisappear { service.panelDidDisappear() }
@@ -77,13 +94,23 @@ struct FanControlCardContent: View {
     @Binding var coolingLevel: Int
     @Binding var curves: [FanControlCurve]
     let temperatureUnit: TemperatureUnit
+    @Binding var gameModeLinkageEnabled: Bool
+    @Binding var downshiftDelayEnabled: Bool
+    @Binding var downshiftDelaySeconds: Int
+    let isGameModeActive: Bool
+    let isGameModeUserOverridden: Bool
+    let gameModeCooldownRemainingSeconds: Int?
     let authorize: () -> Void
     let applyConfiguration: (FanControlConfiguration) -> Void
     let stopCooling: () -> Void
+    let resumeGameModeLinkage: () -> Void
+    let skipGameModeCooldown: () -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             statusHeader
+
+            gameModeBanner
 
             if !snapshot.fans.isEmpty { fanRows }
 
@@ -106,14 +133,18 @@ struct FanControlCardContent: View {
                                           curves: $curves,
                                           temperatures: snapshot.temperatures ?? [],
                                           temperatureUnit: temperatureUnit,
-                                          disabled: isWorking)
+                                          disabled: controlsDisabled)
                     if !curveCanRun {
                         Text(strings.curveUnavailable)
                             .font(.system(size: 9.5))
                             .foregroundStyle(.secondary)
                             .fixedSize(horizontal: false, vertical: true)
                     }
+                case .fullBlast:
+                    EmptyView()
                 }
+
+                optionsSection
             }
 
             action
@@ -127,15 +158,82 @@ struct FanControlCardContent: View {
         }
     }
 
+    @ViewBuilder
+    private var gameModeBanner: some View {
+        if isGameModeActive || gameModeCooldownRemainingSeconds != nil {
+            HStack(spacing: 8) {
+                Image(systemName: isGameModeActive ? "gamecontroller.fill" : "timer")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(isGameModeActive ? Color.green : Color.orange)
+
+                VStack(alignment: .leading, spacing: 1) {
+                    if isGameModeActive {
+                        Text(strings.gameModeActive)
+                            .font(.system(size: 10.5, weight: .medium))
+                    } else if let remaining = gameModeCooldownRemainingSeconds {
+                        Text(String(format: strings.gameModeCooldownFormat, remaining))
+                            .font(.system(size: 10.5, weight: .medium).monospacedDigit())
+                    }
+                }
+
+                Spacer()
+
+                if isGameModeActive && isGameModeUserOverridden {
+                    Button(strings.resumeLinkage) {
+                        resumeGameModeLinkage()
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.mini)
+                } else if gameModeCooldownRemainingSeconds != nil {
+                    Button(strings.skipCooldown) {
+                        skipGameModeCooldown()
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.mini)
+                }
+            }
+            .padding(.horizontal, 8)
+            .padding(.vertical, 6)
+            .background(
+                RoundedRectangle(cornerRadius: 6)
+                    .fill(Color.primary.opacity(0.04))
+            )
+        }
+    }
+
+    @ViewBuilder
+    private var optionsSection: some View {
+        if mode == .curve {
+            VStack(alignment: .leading, spacing: 5) {
+                Toggle(isOn: $gameModeLinkageEnabled) {
+                    Text(strings.gameModeLinkage)
+                        .font(.system(size: 10))
+                }
+                .toggleStyle(.checkbox)
+                .controlSize(.small)
+                .disabled(controlsDisabled)
+
+                Toggle(isOn: $downshiftDelayEnabled) {
+                    Text(strings.downshiftDelay)
+                        .font(.system(size: 10))
+                }
+                .toggleStyle(.checkbox)
+                .controlSize(.small)
+                .disabled(controlsDisabled)
+            }
+        }
+    }
+
     private var modePicker: some View {
         Picker(strings.mode, selection: $mode) {
             Text(strings.systemControl).tag(FanControlMode.system)
             Text(strings.manualControl).tag(FanControlMode.manual)
             Text(strings.customCurve).tag(FanControlMode.curve)
+            Text(strings.modeFullBlast).tag(FanControlMode.fullBlast)
         }
         .pickerStyle(.segmented)
         .controlSize(.small)
-        .disabled(isWorking)
+        .disabled(controlsDisabled)
     }
 
     private var manualControl: some View {
@@ -152,7 +250,7 @@ struct FanControlCardContent: View {
                    in: Double(FanControlPolicy.minimumCoolingLevel)...Double(FanControlPolicy.maximumCoolingLevel),
                    step: Double(FanControlPolicy.coolingLevelStep))
                 .controlSize(.small)
-                .disabled(isWorking)
+                .disabled(controlsDisabled)
         }
     }
 
@@ -215,6 +313,11 @@ struct FanControlCardContent: View {
     private var action: some View {
         if error == .noFans || error == .unsupportedHardware || error == .alreadyControlled {
             EmptyView()
+        } else if error == .helperUnavailable, !snapshot.fans.isEmpty {
+            Button(strings.allowControl, action: authorize)
+                .buttonStyle(.borderedProminent)
+                .controlSize(.small)
+                .frame(maxWidth: .infinity)
         } else if accessState == .notRegistered, !snapshot.fans.isEmpty {
             Button(strings.allowControl, action: authorize)
                 .buttonStyle(.borderedProminent)
@@ -246,11 +349,25 @@ struct FanControlCardContent: View {
                 .frame(maxWidth: .infinity)
             case .curve:
                 Button(strings.applyCurve) {
-                    applyConfiguration(.curve(curves))
+                    applyConfiguration(
+                        .curve(
+                            curves,
+                            downshiftDelayEnabled: downshiftDelayEnabled,
+                            downshiftDelaySeconds: Double(downshiftDelaySeconds)
+                        )
+                    )
                 }
                 .buttonStyle(.borderedProminent)
                 .controlSize(.small)
                 .disabled(isWorking || !curveCanRun)
+                .frame(maxWidth: .infinity)
+            case .fullBlast:
+                Button(strings.modeFullBlast) {
+                    applyConfiguration(.fullBlast())
+                }
+                .buttonStyle(.borderedProminent)
+                .controlSize(.small)
+                .disabled(isWorking)
                 .frame(maxWidth: .infinity)
             }
         }
@@ -273,6 +390,8 @@ struct FanControlCardContent: View {
                 return "\(strings.customCurve) · \(MetricFormat.temperature(temperature, unit: temperatureUnit)) · \(level)%"
             }
             return "\(strings.customCurve) · \(level)%"
+        case .fullBlast:
+            return "\(strings.modeFullBlast) · 100%"
         }
     }
 
@@ -310,11 +429,17 @@ struct FanControlCardContent: View {
 
     private var controlsCanAppear: Bool {
         !snapshot.fans.isEmpty
-            && (error == nil || error == .controlFailed || snapshot.isCooling)
+            && error != .noFans
+            && error != .unsupportedHardware
+            && error != .alreadyControlled
     }
 
     private var canConfigure: Bool {
-        controlsCanAppear && accessState == .enabled
+        controlsCanAppear
+    }
+
+    private var controlsDisabled: Bool {
+        isWorking || accessState != .enabled || error == .helperUnavailable
     }
 
     private var selectedCoolingLevel: Int {

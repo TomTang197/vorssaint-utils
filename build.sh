@@ -320,6 +320,10 @@ if (( TEST )); then
         Sources/Vorssaint/Core/PermissionGuideStrings.swift
         Sources/Vorssaint/Core/FanControlStrings.swift
         Sources/Vorssaint/Services/FanControl/FanControlSupport.swift
+        Sources/Vorssaint/Services/FanControl/Policies/GameModeFanLinkagePolicy.swift
+        Sources/Vorssaint/Services/FanControl/Policies/FanCoolingDownshiftPolicy.swift
+        Sources/Vorssaint/Services/FanControl/Policies/FanWakeResumePolicy.swift
+        Sources/Vorssaint/Services/FanControl/GameModeMonitor.swift
         Sources/Vorssaint/Services/Snippets/TextSnippetSupport.swift
         Sources/Vorssaint/Services/RadialMenu/RadialMenuSupport.swift
         Sources/Vorssaint/Services/QuickTools/ScratchpadSupport.swift
@@ -518,6 +522,7 @@ fi
 echo "▸ Compiling protected fan helper…"
 swiftc -O -target "$TARGET" -sdk "$SDK" "${SDK_COMPAT_FLAGS[@]}" "${BUILD_VARIANT_FLAGS[@]}" \
     Sources/Vorssaint/Services/FanControl/FanControlSupport.swift \
+    Sources/Vorssaint/Services/FanControl/Policies/FanCoolingDownshiftPolicy.swift \
     Sources/Vorssaint/Services/FanControl/FanControlXPC.swift \
     Sources/Vorssaint/Services/SystemMonitor/SMCClient.swift \
     Sources/Vorssaint/Services/Metrics/TemperatureSensorSelector.swift \
@@ -648,7 +653,8 @@ codesign_app() {
         codesign_with_timestamp_retry --force --strip-disallowed-xattrs --options runtime --timestamp \
             --entitlements "$ENTITLEMENTS" --sign "$DEVID" "$target"
     elif legacy_identity_installed; then
-        codesign --force --strip-disallowed-xattrs --sign "$LEGACY_IDENTITY" "$target"
+        codesign --force --strip-disallowed-xattrs --options runtime --entitlements "$ENTITLEMENTS" \
+            --sign "$LEGACY_IDENTITY" "$target"
     else
         codesign --force --strip-disallowed-xattrs --sign - "$target"
     fi
@@ -660,7 +666,7 @@ codesign_fan_helper() {
         codesign_with_timestamp_retry --force --strip-disallowed-xattrs --options runtime --timestamp \
             --identifier "$FAN_HELPER_ID" --sign "$DEVID" "$target"
     elif legacy_identity_installed; then
-        codesign --force --strip-disallowed-xattrs --identifier "$FAN_HELPER_ID" \
+        codesign --force --strip-disallowed-xattrs --options runtime --identifier "$FAN_HELPER_ID" \
             --sign "$LEGACY_IDENTITY" "$target"
     else
         codesign --force --strip-disallowed-xattrs --identifier "$FAN_HELPER_ID" --sign - "$target"

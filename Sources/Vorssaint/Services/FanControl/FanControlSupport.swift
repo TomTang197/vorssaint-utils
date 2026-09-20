@@ -18,6 +18,7 @@ enum FanControlMode: String, Codable, Sendable {
     case system
     case manual
     case curve
+    case fullBlast
 }
 
 enum FanControlTemperatureSource: String, Codable, CaseIterable, Identifiable, Sendable {
@@ -49,6 +50,44 @@ struct FanControlConfiguration: Codable, Equatable, Sendable {
     var mode: FanControlMode
     var manualLevel: Int
     var curves: [FanControlCurve]
+    var downshiftDelayEnabled: Bool
+    var downshiftDelaySeconds: TimeInterval
+
+    init(
+        mode: FanControlMode,
+        manualLevel: Int,
+        curves: [FanControlCurve],
+        downshiftDelayEnabled: Bool = true,
+        downshiftDelaySeconds: TimeInterval = 10
+    ) {
+        self.mode = mode
+        self.manualLevel = manualLevel
+        self.curves = curves
+        self.downshiftDelayEnabled = downshiftDelayEnabled
+        self.downshiftDelaySeconds = downshiftDelaySeconds
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case mode, manualLevel, curves, downshiftDelayEnabled, downshiftDelaySeconds
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.mode = try container.decode(FanControlMode.self, forKey: .mode)
+        self.manualLevel = try container.decode(Int.self, forKey: .manualLevel)
+        self.curves = try container.decode([FanControlCurve].self, forKey: .curves)
+        self.downshiftDelayEnabled = try container.decodeIfPresent(Bool.self, forKey: .downshiftDelayEnabled) ?? true
+        self.downshiftDelaySeconds = try container.decodeIfPresent(TimeInterval.self, forKey: .downshiftDelaySeconds) ?? 10
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(mode, forKey: .mode)
+        try container.encode(manualLevel, forKey: .manualLevel)
+        try container.encode(curves, forKey: .curves)
+        try container.encode(downshiftDelayEnabled, forKey: .downshiftDelayEnabled)
+        try container.encode(downshiftDelaySeconds, forKey: .downshiftDelaySeconds)
+    }
 
     static let defaultCurve = FanControlCurve(
         sensor: .hottestSoC,
@@ -63,10 +102,20 @@ struct FanControlConfiguration: Codable, Equatable, Sendable {
                                 curves: [])
     }
 
-    static func curve(_ curves: [FanControlCurve]) -> FanControlConfiguration {
+    static func curve(_ curves: [FanControlCurve],
+                      downshiftDelayEnabled: Bool = true,
+                      downshiftDelaySeconds: TimeInterval = 10) -> FanControlConfiguration {
         FanControlConfiguration(mode: .curve,
                                 manualLevel: FanControlPolicy.defaultCoolingLevel,
-                                curves: curves)
+                                curves: curves,
+                                downshiftDelayEnabled: downshiftDelayEnabled,
+                                downshiftDelaySeconds: downshiftDelaySeconds)
+    }
+
+    static func fullBlast() -> FanControlConfiguration {
+        FanControlConfiguration(mode: .fullBlast,
+                                manualLevel: FanControlPolicy.maximumCoolingLevel,
+                                curves: [])
     }
 
     static func encodeCurves(_ curves: [FanControlCurve]) -> String? {
@@ -203,12 +252,14 @@ enum FanControlPolicy {
 
     static func validConfiguration(_ configuration: FanControlConfiguration) -> Bool {
         switch configuration.mode {
-        case .system:
+        case .system, .fullBlast:
             return true
         case .manual:
             return validCoolingLevel(configuration.manualLevel)
         case .curve:
             return validCurves(configuration.curves)
+                && configuration.downshiftDelaySeconds >= 0
+                && configuration.downshiftDelaySeconds <= 300
         }
     }
 

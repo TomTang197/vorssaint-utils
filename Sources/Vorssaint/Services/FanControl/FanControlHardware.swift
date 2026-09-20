@@ -106,22 +106,9 @@ final class FanControlHardware {
             return target
         }
 
-        // Keep the target write adjacent to manual mode. The thermal controller
-        // can reclaim automatic mode between a separate verification and target.
-        var directSucceeded = true
-        for (fan, target) in zip(fans, targets) {
-            if !writeManualPair(for: fan, target: target) { directSucceeded = false }
-        }
-
-        if directSucceeded {
-            Thread.sleep(forTimeInterval: 0.25)
-            directSucceeded = fans.allSatisfy { (try? modeValue($0.mode)) == 1 }
-        }
-
-        if !directSucceeded {
-            let forceTest = forceTestKey()
-            let forced = forceTest.map { setByte(1, for: $0, attempts: 20) } ?? false
-            guard FanControlPolicy.forceTestSatisfied(keyExists: forceTest != nil,
+        if let forceTest = forceTestKey() {
+            let forced = setByte(1, for: forceTest, attempts: 20)
+            guard FanControlPolicy.forceTestSatisfied(keyExists: true,
                                                       writeSucceeded: forced) else {
                 throw FanControlHardwareError.operationFailed
             }
@@ -140,15 +127,25 @@ final class FanControlHardware {
                     throw FanControlHardwareError.operationFailed
                 }
             }
-        }
-
-        if !directSucceeded {
             for (fan, target) in zip(fans, targets) {
                 guard setTargetRPM(target, for: fan, attempts: 10) else {
                     throw FanControlHardwareError.operationFailed
                 }
             }
+        } else {
+            var directSucceeded = true
+            for (fan, target) in zip(fans, targets) {
+                if !writeManualPair(for: fan, target: target) { directSucceeded = false }
+            }
+            if directSucceeded {
+                Thread.sleep(forTimeInterval: 0.25)
+                directSucceeded = fans.allSatisfy { (try? modeValue($0.mode)) == 1 }
+            }
+            guard directSucceeded else {
+                throw FanControlHardwareError.operationFailed
+            }
         }
+
         guard verifyCooling(fans, targets: targets, attempts: 10) else {
             throw FanControlHardwareError.operationFailed
         }
@@ -231,7 +228,7 @@ final class FanControlHardware {
 
     func coolingIsIntact() -> Bool {
         guard let fans = try? discoverControlledFans() else { return false }
-        return verifyCooling(fans, targets: activeTargets)
+        return verifyCooling(fans, targets: activeTargets, attempts: 3)
     }
 
     func readTemperatures() -> [FanControlTemperatureReading] {

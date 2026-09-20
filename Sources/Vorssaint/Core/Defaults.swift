@@ -365,6 +365,10 @@ enum DefaultsKey {
     static let fanControlMode = "fanControlMode"
     static let fanControlCoolingLevel = "fanControlCoolingLevel"
     static let fanControlCurves = "fanControlCurves"
+    static let fanControlGameModeLinkageEnabled = "fanControlGameModeLinkageEnabled"
+    static let fanControlGameModeExitDelaySeconds = "fanControlGameModeExitDelaySeconds"
+    static let fanControlDownshiftDelayEnabled = "fanControlDownshiftDelayEnabled"
+    static let fanControlDownshiftDelaySeconds = "fanControlDownshiftDelaySeconds"
     // Previous panel visibility key, read once by the migration below.
     static let monitorShowFanControlBeta = "monitorShowFanControlBeta"
     // Machine-only recovery state. A true value means the helper must confirm
@@ -1319,6 +1323,10 @@ enum Defaults {
         DefaultsKey.fanControlMode: FanControlMode.system.rawValue,
         DefaultsKey.fanControlCoolingLevel: FanControlPolicy.defaultCoolingLevel,
         DefaultsKey.fanControlCurves: FanControlConfiguration.defaultCurvesStorage,
+        DefaultsKey.fanControlGameModeLinkageEnabled: false,
+        DefaultsKey.fanControlGameModeExitDelaySeconds: 60,
+        DefaultsKey.fanControlDownshiftDelayEnabled: true,
+        DefaultsKey.fanControlDownshiftDelaySeconds: 10,
         DefaultsKey.fanControlRecoveryNeeded: false,
         DefaultsKey.fanControlHelperVersion: "",
         DefaultsKey.panelNavigationEnabled: true,
