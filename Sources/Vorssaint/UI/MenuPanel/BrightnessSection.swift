@@ -10,12 +10,8 @@ struct BrightnessSection: View {
     @ObservedObject private var l10n = L10n.shared
     @ObservedObject private var service = BrightnessService.shared
     @ObservedObject private var permissions = Permissions.shared
-    @ObservedObject private var xdrService = XDRBoostService.shared
-    @ObservedObject private var extraBrightnessService = ExtraBrightnessService.shared
     @AppStorage(DefaultsKey.brightnessOSDEnabled) private var brightnessOSDEnabled = false
     @AppStorage(DefaultsKey.brightnessKeysEnabled) private var brightnessKeysEnabled = false
-    @AppStorage(DefaultsKey.extraBrightnessEnabled) private var extraBrightnessEnabled = false
-    @AppStorage(DefaultsKey.extraBrightnessLevel) private var extraBrightnessLevel = 100
     @State private var optionsExpanded = false
     var collapsible = true
 
@@ -50,7 +46,10 @@ struct BrightnessSection: View {
                             service.syncWithPreferences()
                         }
                 }
-
+                if AppFeature.extraBrightness.isAvailable {
+                    Divider()
+                    ExtraBrightnessPanelToggle()
+                }
                 Divider()
                 optionsDisclosure
             }
@@ -108,141 +107,8 @@ struct BrightnessSection: View {
         }
     }
 
-    private func isEDRSupported(for display: BrightnessDisplay) -> Bool {
-        AppFeature.extraBrightness.isAvailable && xdrService.isEDRSupported(for: display.id)
-    }
-
-    private func isOverdrive(for display: BrightnessDisplay) -> Bool {
-        guard isEDRSupported(for: display) else { return false }
-        if display.isBuiltIn {
-            return extraBrightnessEnabled || xdrService.isEnabled(for: display.id)
-        }
-        return xdrService.isEnabled(for: display.id)
-    }
-
-    private func maxHeadroom(for display: BrightnessDisplay) -> Double {
-        min(XDRBoostService.maxBoost, max(XDRBoostService.minBoost, xdrService.maximumHeadroom(for: display.id)))
-    }
-
-    private func sliderMax(for display: BrightnessDisplay) -> Double {
-        isOverdrive(for: display) ? maxHeadroom(for: display) : 1.0
-    }
-
-    private func unifiedBrightness(for display: BrightnessDisplay) -> Double {
-        guard isOverdrive(for: display) else {
-            return display.brightness
-        }
-
-        let boost: Double
-        if display.isBuiltIn {
-            boost = 1.0 + (Double(extraBrightnessLevel) / 100.0)
-        } else {
-            boost = xdrService.currentMultiplier(for: display.id)
-        }
-
-        if boost > 1.001 && display.brightness >= 0.999 {
-            return min(maxHeadroom(for: display), max(1.0, boost))
-        } else {
-            return display.brightness
-        }
-    }
-
-    private func percentText(for display: BrightnessDisplay) -> String {
-        let val = unifiedBrightness(for: display)
-        return "\(Int((val * 100).rounded()))%"
-    }
-
-    private func toggleXDROverdrive(for display: BrightnessDisplay) {
-        let currentlyActive = isOverdrive(for: display)
-        let targetActive = !currentlyActive
-
-        if targetActive {
-            service.setBrightness(1.0, for: display.id, showOSD: false)
-            if display.isBuiltIn {
-                extraBrightnessEnabled = true
-                if extraBrightnessLevel <= 0 {
-                    extraBrightnessLevel = 50
-                }
-                extraBrightnessService.syncWithPreferences()
-            }
-            let mult = display.isBuiltIn ? (1.0 + Double(extraBrightnessLevel) / 100.0) : 1.5
-            xdrService.setEDRBoost(displayID: display.id, enabled: true, multiplier: mult)
-        } else {
-            if display.isBuiltIn {
-                extraBrightnessEnabled = false
-                extraBrightnessService.syncWithPreferences()
-            }
-            xdrService.setEDRBoost(displayID: display.id, enabled: false)
-            if display.brightness >= 0.999 {
-                service.setBrightness(1.0, for: display.id, showOSD: false)
-            }
-        }
-    }
-
-    private func unifiedBrightnessBinding(_ display: BrightnessDisplay) -> Binding<Double> {
-        Binding(
-            get: { unifiedBrightness(for: display) },
-            set: { newValue in
-                guard newValue.isFinite else { return }
-                if isOverdrive(for: display) {
-                    if newValue <= 1.0 {
-                        service.setBrightness(newValue, for: display.id, showOSD: brightnessOSDEnabled)
-                        if display.isBuiltIn {
-                            extraBrightnessLevel = 0
-                            extraBrightnessService.levelDidChange()
-                        }
-                        xdrService.setMultiplier(1.0, for: display.id)
-                    } else {
-                        if display.brightness < 0.999 {
-                            service.setBrightness(1.0, for: display.id, showOSD: false)
-                        }
-                        let clampedMult = min(maxHeadroom(for: display), max(1.0, newValue))
-                        if display.isBuiltIn {
-                            extraBrightnessEnabled = true
-                            extraBrightnessLevel = Int(((clampedMult - 1.0) * 100).rounded())
-                            extraBrightnessService.levelDidChange()
-                            extraBrightnessService.syncWithPreferences()
-                        }
-                        xdrService.setMultiplier(clampedMult, for: display.id)
-                    }
-                } else {
-                    service.setBrightness(newValue, for: display.id, showOSD: brightnessOSDEnabled)
-                }
-            }
-        )
-    }
-
-    private func xdrPillButton(display: BrightnessDisplay, active: Bool) -> some View {
-        Button {
-            withAnimation(.easeInOut(duration: 0.2)) {
-                toggleXDROverdrive(for: display)
-            }
-        } label: {
-            HStack(spacing: 3) {
-                Image(systemName: active ? "sun.max.fill" : "sun.max")
-                    .font(.system(size: 8, weight: .bold))
-                Text("XDR")
-                    .font(.system(size: 8.5, weight: .bold))
-            }
-            .foregroundStyle(active ? Color.white : Color.secondary)
-            .padding(.horizontal, 5)
-            .padding(.vertical, 2)
-            .background(
-                Capsule()
-                    .fill(active ? Color.orange : Color.primary.opacity(0.08))
-            )
-        }
-        .buttonStyle(.plain)
-        .help(active ? l10n.s.extraBrightnessCaption : l10n.s.xdrBoostCaption)
-    }
-
     private func row(_ display: BrightnessDisplay) -> some View {
-        let hasEDR = isEDRSupported(for: display)
-        let activeOverdrive = isOverdrive(for: display)
-        let val = unifiedBrightness(for: display)
-        let isBoosting = activeOverdrive && val > 1.001
-
-        return VStack(alignment: .leading, spacing: 4) {
+        VStack(alignment: .leading, spacing: 4) {
             HStack(spacing: 6) {
                 Image(systemName: display.isBuiltIn ? "laptopcomputer" : "display")
                     .font(.system(size: 10.5, weight: .semibold))
@@ -253,13 +119,10 @@ struct BrightnessSection: View {
                     .lineLimit(1)
                     .truncationMode(.middle)
                 Spacer(minLength: 4)
-                if hasEDR && display.isActive {
-                    xdrPillButton(display: display, active: activeOverdrive)
-                }
                 if display.isActive, display.method != nil {
-                    Text(percentText(for: display))
+                    Text("\(Int((display.brightness * 100).rounded()))%")
                         .font(.system(size: 10.5, weight: .semibold).monospacedDigit())
-                        .foregroundStyle(isBoosting ? Color.orange : Color.secondary)
+                        .foregroundStyle(.secondary)
                 } else if !display.isActive {
                     Text(strings.displayOff)
                         .font(.system(size: 10.5, weight: .medium))
@@ -268,8 +131,7 @@ struct BrightnessSection: View {
                 DisplayPowerButton(display: display, compact: true)
             }
             if display.isActive, display.method != nil {
-                Slider(value: unifiedBrightnessBinding(display), in: 0...sliderMax(for: display))
-                    .tint(isBoosting ? Color.orange : nil)
+                Slider(value: brightnessBinding(display), in: 0...1)
                     .controlSize(.small)
                     .disabled(service.isDisplayPending(display.id))
                     .accessibilityLabel(display.name)
@@ -279,6 +141,29 @@ struct BrightnessSection: View {
             }
             SoftwareDimmingButton(display: display, compact: true)
         }
+    }
+
+    private func brightnessBinding(_ display: BrightnessDisplay) -> Binding<Double> {
+        Binding(get: { display.brightness },
+                set: { service.setBrightness($0, for: display.id,
+                                             showOSD: brightnessOSDEnabled) })
+    }
+}
+
+private struct ExtraBrightnessPanelToggle: View {
+    @ObservedObject private var l10n = L10n.shared
+    @ObservedObject private var service = ExtraBrightnessService.shared
+    @AppStorage(DefaultsKey.extraBrightnessEnabled) private var enabled = false
+
+    var body: some View {
+        Toggle(l10n.s.extraBrightnessName, isOn: $enabled)
+            .font(.system(size: 10.5, weight: .medium))
+            .toggleStyle(.switch)
+            .controlSize(.mini)
+            .disabled(!service.supported && !enabled)
+            .help(service.supported ? l10n.s.extraBrightnessCaption : l10n.s.extraBrightnessUnsupported)
+            .onChange(of: enabled) { _, _ in service.syncWithPreferences() }
+            .onAppear { service.syncWithPreferences() }
     }
 }
 
@@ -412,7 +297,7 @@ struct DisplayResolutionRow: View {
                                 if mode.id == current.id {
                                     Image(systemName: "checkmark")
                                 }
-                                Text("\(mode.width) × \(mode.height)  ·  \(Int(mode.refreshRate.rounded())) Hz\(mode.isHiDPI ? " (HiDPI)" : "")")
+                                Text("\(mode.width) × \(mode.height)  ·  \(mode.refreshLabel)\(mode.isHiDPI ? " (HiDPI)" : "")")
                             }
                         }
                     }
@@ -420,7 +305,7 @@ struct DisplayResolutionRow: View {
                     HStack(spacing: 3) {
                         Text("\(current.width) × \(current.height)")
                             .font(.system(size: 10, weight: .medium).monospacedDigit())
-                        Text("· \(Int(current.refreshRate.rounded())) Hz")
+                        Text("· \(current.refreshLabel)")
                             .font(.system(size: 9.5).monospacedDigit())
                             .foregroundStyle(.secondary)
                         Image(systemName: "chevron.up.chevron.down")
@@ -485,4 +370,3 @@ struct DisplayResolutionRow: View {
         }
     }
 }
-
