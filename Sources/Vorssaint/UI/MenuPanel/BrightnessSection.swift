@@ -343,6 +343,7 @@ func displayControlFailureText(_ failure: BrightnessService.DisplayControlFailur
 
 struct DisplayResolutionRow: View {
     @ObservedObject private var resolutionService = DisplayResolutionService.shared
+    @ObservedObject private var recoveryManager = DisplayRecoveryManager.shared
     @ObservedObject private var l10n = L10n.shared
     let displayID: CGDirectDisplayID
 
@@ -390,6 +391,7 @@ struct DisplayResolutionRow: View {
                 }
                 .menuStyle(.borderlessButton)
                 .fixedSize()
+                .disabled(recoveryManager.awaitingConfirmation)
 
                 Spacer(minLength: 4)
 
@@ -407,6 +409,7 @@ struct DisplayResolutionRow: View {
                         .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
+                .disabled(recoveryManager.awaitingConfirmation)
                 .help(l10n.s.toggleHiDPICaption)
             }
             .padding(.leading, 22)
