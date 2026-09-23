@@ -1033,17 +1033,13 @@ extension Strings {
         mouseAccelerationCaption: "Elimina la aceleración del puntero para los ratones conectados. El ajuste anterior vuelve al desactivarlo o salir de Vorssaint.",
         shelfClearOnClose: "Borrar al cerrar",
         shelfClearOnCloseCaption: "Vacía el estante solo al hacer clic en el botón de cierre. Ocultarlo automáticamente y contraerlo conservan los ítems.",
-        hiDPILabel: "HiDPI",
         nativeHiDPI: "HiDPI nativo",
         virtualHiDPI: "HiDPI virtual",
         standardResolution: "Resolución estándar (1x)",
-        resolutionMenuTitle: "Resolución",
         recoveryKeep: "Mantener ajustes",
         recoveryRevert: "Restablecer",
         recoveryCountdownTitle: "¿Mantener esta configuración de pantalla?",
         recoveryCountdownRemaining: { "Restableciendo automáticamente en \($0) s" },
         toggleHiDPICaption: "Alternar ajuste de escala Retina HiDPI",
-        xdrBoostTitle: "Brillo XDR 1600 nits",
-        xdrBoostCaption: "Desbloquea hasta 1600 nits de brillo pico en pantallas Liquid Retina XDR y EDR."
     )
 }

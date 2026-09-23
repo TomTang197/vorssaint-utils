@@ -1033,17 +1033,13 @@ extension Strings {
         mouseAccelerationCaption: "Deaktiviert die Zeigerbeschleunigung für angeschlossene Mäuse. Die vorherige Einstellung wird beim Ausschalten oder Beenden von Vorssaint wiederhergestellt.",
         shelfClearOnClose: "Beim Schließen leeren",
         shelfClearOnCloseCaption: "Leert die Ablage nur, wenn du auf die Schließen-Taste klickst. Automatisches Ausblenden und Einklappen behalten die Objekte.",
-        hiDPILabel: "HiDPI",
         nativeHiDPI: "Natives HiDPI",
         virtualHiDPI: "Virtuelles HiDPI",
         standardResolution: "Standardauflösung (1x)",
-        resolutionMenuTitle: "Auflösung",
         recoveryKeep: "Einstellungen behalten",
         recoveryRevert: "Zurücksetzen",
         recoveryCountdownTitle: "Diese Anzeigeeinstellungen beibehalten?",
         recoveryCountdownRemaining: { "Automatische Rückkehr in \($0) s" },
         toggleHiDPICaption: "Retina-HiDPI-Skalierung umschalten",
-        xdrBoostTitle: "XDR 1600 nits Spitzenhelligkeit",
-        xdrBoostCaption: "Schaltet bis zu 1600 nits Spitzen-Hintergrundbeleuchtung auf Liquid Retina XDR- und EDR-Bildschirmen frei."
     )
 }
