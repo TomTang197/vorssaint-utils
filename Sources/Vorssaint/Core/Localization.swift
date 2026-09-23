@@ -2242,7 +2242,7 @@ extension Strings {
         recoveryRevert: "Reverter",
         recoveryCountdownTitle: "Confirmar ajustes de tela",
         recoveryCountdownRemaining: { "Revertendo em \($0) s" },
-        toggleHiDPICaption: "Alternar dimensionamento Retina HiDPI",
+        toggleHiDPICaption: "Alternar dimensionamento Retina HiDPI"
     )
 }
 
@@ -3285,6 +3285,6 @@ extension Strings {
         recoveryRevert: "Revert",
         recoveryCountdownTitle: "Confirm Display Settings",
         recoveryCountdownRemaining: { "Auto-reverting in \($0)s" },
-        toggleHiDPICaption: "Toggle Retina HiDPI scaling",
+        toggleHiDPICaption: "Toggle Retina HiDPI scaling"
     )
 }

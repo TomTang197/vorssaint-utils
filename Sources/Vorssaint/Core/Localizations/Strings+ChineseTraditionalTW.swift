@@ -1041,6 +1041,6 @@ extension Strings {
         recoveryRevert: "還原",
         recoveryCountdownTitle: "保留這個顯示設定？",
         recoveryCountdownRemaining: { "\($0) 秒後自動恢復" },
-        toggleHiDPICaption: "切換 Retina HiDPI 縮放",
+        toggleHiDPICaption: "切換 Retina HiDPI 縮放"
     )
 }
