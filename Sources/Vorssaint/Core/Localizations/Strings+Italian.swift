@@ -1083,6 +1083,6 @@ extension Strings {
         recoveryRevert: "Ripristina",
         recoveryCountdownTitle: "Mantenere queste impostazioni dello schermo?",
         recoveryCountdownRemaining: { "Ripristino automatico in \($0) s" },
-        toggleHiDPICaption: "Attiva/disattiva ridimensionamento Retina HiDPI",
+        toggleHiDPICaption: "Attiva/disattiva ridimensionamento Retina HiDPI"
     )
 }
