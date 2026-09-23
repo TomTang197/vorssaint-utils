@@ -1085,17 +1085,13 @@ extension Strings {
         shelfClearOnCloseCaption: "仅在点按关闭按钮时清空暂存架。自动隐藏或收起时会保留项目。",
         shelfShortcutFinderSelection: "使用快捷键添加访达中的所选项",
         shelfShortcutFinderSelectionCaption: "访达位于前台时，快捷键会打开暂存架并放入所选文件。未选择任何内容时照常打开。",
-        hiDPILabel: "HiDPI",
         nativeHiDPI: "原生 HiDPI",
         virtualHiDPI: "虚拟 HiDPI",
         standardResolution: "标准分辨率 (1x)",
-        resolutionMenuTitle: "分辨率",
         recoveryKeep: "保留设置",
         recoveryRevert: "还原",
         recoveryCountdownTitle: "保留这个显示设置？",
         recoveryCountdownRemaining: { "\($0) 秒后自动恢复" },
         toggleHiDPICaption: "切换 Retina HiDPI 缩放",
-        xdrBoostTitle: "XDR 1600 nits 极致高亮",
-        xdrBoostCaption: "突破硬件限制，将 Liquid Retina XDR 与支持 EDR 的屏幕亮度提升至最高 1600 nits 峰值。"
     )
 }

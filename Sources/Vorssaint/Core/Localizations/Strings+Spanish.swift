@@ -1085,17 +1085,13 @@ extension Strings {
         shelfClearOnCloseCaption: "Vacía el estante solo al hacer clic en el botón de cierre. Ocultarlo automáticamente y contraerlo conservan los ítems.",
         shelfShortcutFinderSelection: "Añadir la selección del Finder con el atajo",
         shelfShortcutFinderSelectionCaption: "Con el Finder al frente, el atajo abre el estante con los archivos seleccionados ya dentro. Sin selección, se abre como siempre.",
-        hiDPILabel: "HiDPI",
         nativeHiDPI: "HiDPI nativo",
         virtualHiDPI: "HiDPI virtual",
         standardResolution: "Resolución estándar (1x)",
-        resolutionMenuTitle: "Resolución",
         recoveryKeep: "Mantener ajustes",
         recoveryRevert: "Restablecer",
         recoveryCountdownTitle: "¿Mantener esta configuración de pantalla?",
         recoveryCountdownRemaining: { "Restableciendo automáticamente en \($0) s" },
         toggleHiDPICaption: "Alternar ajuste de escala Retina HiDPI",
-        xdrBoostTitle: "Brillo XDR 1600 nits",
-        xdrBoostCaption: "Desbloquea hasta 1600 nits de brillo pico en pantallas Liquid Retina XDR y EDR."
     )
 }

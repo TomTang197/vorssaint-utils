@@ -1086,17 +1086,13 @@ extension Strings {
         shelfClearOnCloseCaption: "Очищает полку только при нажатии кнопки закрытия. Автоматическое скрытие и сворачивание сохраняют элементы.",
         shelfShortcutFinderSelection: "Добавлять выбранное в Finder по горячей клавише",
         shelfShortcutFinderSelectionCaption: "Когда Finder на переднем плане, горячая клавиша открывает полку уже с выбранными файлами. Если ничего не выбрано, полка открывается как обычно.",
-        hiDPILabel: "HiDPI",
         nativeHiDPI: "Нативное HiDPI",
         virtualHiDPI: "Виртуальное HiDPI",
         standardResolution: "Стандартное разрешение (1x)",
-        resolutionMenuTitle: "Разрешение",
         recoveryKeep: "Сохранить",
         recoveryRevert: "Вернуть",
         recoveryCountdownTitle: "Сохранить эти настройки дисплея?",
         recoveryCountdownRemaining: { "Автоматический возврат через \($0) сек." },
         toggleHiDPICaption: "Переключить масштабирование Retina HiDPI",
-        xdrBoostTitle: "Пиковая яркость XDR 1600 нит",
-        xdrBoostCaption: "Разблокирует до 1600 нит пиковой подсветки на дисплеях Liquid Retina XDR и EDR."
     )
 }

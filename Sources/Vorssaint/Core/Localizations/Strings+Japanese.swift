@@ -1085,17 +1085,13 @@ extension Strings {
         shelfClearOnCloseCaption: "閉じるボタンをクリックしたときだけシェルフを空にします。自動的に隠れた場合や折りたたんだ場合は項目を保持します。",
         shelfShortcutFinderSelection: "ショートカットで Finder の選択項目を追加",
         shelfShortcutFinderSelectionCaption: "Finder が最前面にあるとき、ショートカットで選択中のファイルが入った状態のシェルフを開きます。何も選択していない場合は通常どおり開きます。",
-        hiDPILabel: "HiDPI",
         nativeHiDPI: "ネイティブ HiDPI",
         virtualHiDPI: "仮想 HiDPI",
         standardResolution: "標準解像度 (1x)",
-        resolutionMenuTitle: "解像度",
         recoveryKeep: "設定を保持",
         recoveryRevert: "元に戻す",
         recoveryCountdownTitle: "このディスプレイ設定を保持しますか？",
         recoveryCountdownRemaining: { "\($0)秒後に自動で元に戻します" },
         toggleHiDPICaption: "Retina HiDPI スケーリングの切り替え",
-        xdrBoostTitle: "XDR 1600 nits ピーク輝度",
-        xdrBoostCaption: "Liquid Retina XDR および EDR 対応ディスプレイで最大 1600 nits のピーク輝度を解放します。"
     )
 }
