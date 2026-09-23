@@ -1076,17 +1076,13 @@ extension Strings {
         mouseAccelerationCaption: "Bağlı farelerde işaretçi hızlandırmasını kaldırır. Seçenek kapatıldığında veya Vorssaint’ten çıkıldığında önceki ayar geri yüklenir.",
         shelfClearOnClose: "Kapatınca temizle",
         shelfClearOnCloseCaption: "Rafı yalnızca kapatma düğmesine tıkladığında boşaltır. Otomatik gizleme ve daraltma öğeleri korur.",
-        hiDPILabel: "HiDPI",
         nativeHiDPI: "Yerel HiDPI",
         virtualHiDPI: "Sanal HiDPI",
         standardResolution: "Standart Çözünürlük (1x)",
-        resolutionMenuTitle: "Çözünürlük",
         recoveryKeep: "Ayarları Koru",
         recoveryRevert: "Geri Dön",
         recoveryCountdownTitle: "Bu ekran ayarlarını koru?",
         recoveryCountdownRemaining: { "\($0) sn içinde otomatik geri dönülecek" },
         toggleHiDPICaption: "Retina HiDPI ölçeklemeyi aç/kapat",
-        xdrBoostTitle: "XDR 1600 nits Maksimum Parlaklık",
-        xdrBoostCaption: "Liquid Retina XDR ve EDR ekranlarda 1600 nits’e kadar tepe parlaklığın kilidini açar."
     )
 }
