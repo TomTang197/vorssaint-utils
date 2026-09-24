@@ -1084,6 +1084,14 @@ extension Strings {
         shelfClearOnClose: "Vymazať pri zatvorení",
         shelfClearOnCloseCaption: "Vyprázdni policu len vtedy, keď kliknete na jej tlačidlo zatvorenia. Automatické skrytie a zbalenie položky zachovajú.",
         shelfShortcutFinderSelection: "Pridať výber z Findera skratkou",
-        shelfShortcutFinderSelectionCaption: "Keď je Finder v popredí, skratka otvorí policu už s vybranými súbormi. Ak nie je nič vybraté, otvorí sa ako zvyčajne."
+        shelfShortcutFinderSelectionCaption: "Keď je Finder v popredí, skratka otvorí policu už s vybranými súbormi. Ak nie je nič vybraté, otvorí sa ako zvyčajne.",
+        nativeHiDPI: "Natívne HiDPI",
+        virtualHiDPI: "Virtuálne HiDPI",
+        standardResolution: "Štandardné rozlíšenie (1x)",
+        recoveryKeep: "Ponechať zmeny",
+        recoveryRevert: "Vrátiť späť",
+        recoveryCountdownTitle: "Potvrdiť nastavenia displeja",
+        recoveryCountdownRemaining: { "Automatické vrátenie o \($0) s" },
+        toggleHiDPICaption: "Prepnúť Retina HiDPI škálovanie"
     )
 }
