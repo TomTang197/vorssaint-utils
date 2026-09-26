@@ -34,6 +34,30 @@ struct NotchLyrics: Equatable {
     let plain: String
     let instrumental: Bool
 
+    /// Highlighting changes only at lyric boundaries. Rebuild this schedule
+    /// when playback or the user's offset changes, with no clock while paused.
+    func changeDates(for playback: NotchPlayback, offset: Double, from now: Date) -> [Date] {
+        var dates = [now]
+        guard playback.isPlaying, playback.hasPosition, playback.rate.isFinite, playback.rate > 0,
+              offset.isFinite else { return dates }
+        let position = playback.position(at: now)
+        for line in lines {
+            let target = line.time + offset
+            guard target > position, target <= playback.duration else { continue }
+            let time = playback.sampledAt.timeIntervalSinceReferenceDate
+                + (target - playback.elapsed) / playback.rate
+            guard time.isFinite else { continue }
+            // Round toward the new verse: inverse rate/date arithmetic must
+            // not leave the highlight just before its boundary until the next verse.
+            dates.append(Date(timeIntervalSinceReferenceDate: max(now.timeIntervalSinceReferenceDate, time).nextUp))
+        }
+        // SwiftUI can omit the last entry of a finite explicit timeline.
+        // Leave a terminal entry beyond playback so the final verse is delivered,
+        // without recurring wakeups or any scheduled work while paused.
+        if dates.count > 1 { dates.append(.distantFuture) }
+        return dates
+    }
+
     func activeIndex(at position: Double, offset: Double = 0) -> Int? {
         guard position.isFinite, offset.isFinite else { return nil }
         let time = position - offset
@@ -97,7 +121,7 @@ enum NotchLyricsSupport {
         var url = URLComponents(string: "https://lrclib.net/api/get")!
         url.queryItems = [URLQueryItem(name: "track_name", value: track.title),
                           URLQueryItem(name: "artist_name", value: track.artist),
-                          URLQueryItem(name: "album_name", value: track.album),
+                          URLQueryItem(name: "album_name", value: catalogAlbum(track.album)),
                           URLQueryItem(name: "duration", value: String(track.duration))]
         return url.url
     }
@@ -107,7 +131,7 @@ enum NotchLyricsSupport {
               let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
               equal(object["trackName"] as? String, track.title),
               equal(object["artistName"] as? String, track.artist),
-              equal(object["albumName"] as? String, track.album),
+              equal((object["albumName"] as? String).map(catalogAlbum), catalogAlbum(track.album)),
               let duration = object["duration"] as? Double, duration.isFinite,
               abs(duration - track.duration) <= 2 else { return nil }
         let plain = (object["plainLyrics"] as? String ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
@@ -116,6 +140,18 @@ enum NotchLyricsSupport {
         guard instrumental || !plain.isEmpty || !parsed.isEmpty else { return nil }
         return NotchLyrics(lines: instrumental ? [] : parsed, plain: instrumental ? "" : plain,
                            instrumental: instrumental)
+    }
+
+    /// Apple Music names singles and EPs "Title - Single" and "Title - EP",
+    /// while LRCLIB stores the release title alone. Other qualifiers still count.
+    static func catalogAlbum(_ album: String) -> String {
+        let trimmed = album.trimmingCharacters(in: .whitespacesAndNewlines)
+        for suffix in [" - Single", " - EP"] {
+            guard let range = trimmed.range(of: suffix, options: [.anchored, .backwards, .caseInsensitive]),
+                  range.lowerBound > trimmed.startIndex else { continue }
+            return String(trimmed[..<range.lowerBound])
+        }
+        return trimmed
     }
 
     private static func equal(_ value: String?, _ expected: String) -> Bool {
