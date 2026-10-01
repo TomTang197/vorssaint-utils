@@ -34,6 +34,10 @@ struct BrightnessSection: View {
                         .font(.system(size: 10.5))
                         .foregroundStyle(.red)
                 }
+                if service.keyboardLightEnabled != nil {
+                    Divider()
+                    keyboardLightRow
+                }
                 if service.brightnessOSDSupported {
                     Divider()
                     Toggle(strings.osdToggle, isOn: $brightnessOSDEnabled)
@@ -54,7 +58,10 @@ struct BrightnessSection: View {
                 optionsDisclosure
             }
             .panelCard()
-            .onAppear { service.refresh() }
+            .onAppear {
+                service.refresh()
+                service.refreshKeyboardLight()
+            }
         }
     }
 
@@ -136,9 +143,42 @@ struct BrightnessSection: View {
                     .disabled(service.isDisplayPending(display.id))
                     .accessibilityLabel(display.name)
             }
+            if display.isActive {
+                DisplayResolutionRow(displayID: display.id)
+            }
+            SoftwareDimmingButton(display: display, compact: true)
         }
     }
 
+    /// Sits with the display sliders because it is the same control. The
+    /// Quick toggles switch stays the place to flip it off and back on, and
+    /// the slider reaches 0, so the row carries no switch of its own.
+    private var keyboardLightRow: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack(spacing: 6) {
+                Image(systemName: "keyboard")
+                    .font(.system(size: 10.5, weight: .semibold))
+                    .foregroundStyle(.secondary)
+                    .frame(width: 16)
+                Text(strings.keyboardLight)
+                    .font(.system(size: 11.5, weight: .medium))
+                    .lineLimit(1)
+                Spacer(minLength: 4)
+                Text("\(Int(((service.keyboardLightLevel ?? 0) * 100).rounded()))%")
+                    .font(.system(size: 10.5, weight: .semibold).monospacedDigit())
+                    .foregroundStyle(.secondary)
+            }
+            Slider(value: keyboardLightBinding, in: 0...1,
+                   onEditingChanged: service.keyboardLightDragChanged)
+                .controlSize(.small)
+                .accessibilityLabel(strings.keyboardLight)
+        }
+    }
+
+    private var keyboardLightBinding: Binding<Double> {
+        Binding(get: { Double(service.keyboardLightLevel ?? 0) },
+                set: { service.setKeyboardLightLevel(Float($0)) })
+    }
     private func brightnessBinding(_ display: BrightnessDisplay) -> Binding<Double> {
         Binding(get: { display.brightness },
                 set: { service.setBrightness($0, for: display.id,
@@ -160,6 +200,62 @@ private struct ExtraBrightnessPanelToggle: View {
             .help(service.supported ? l10n.s.extraBrightnessCaption : l10n.s.extraBrightnessUnsupported)
             .onChange(of: enabled) { _, _ in service.syncWithPreferences() }
             .onAppear { service.syncWithPreferences() }
+    }
+}
+
+/// Shared routing choice, on every surface that shows the display rows: the
+/// slider is just as dead on the Energy page as in the panel, so the way out
+/// has to be there too.
+///
+/// On readable DDC displays, the choice extends the slider below the panel's
+/// hardware minimum and is offered in Settings. On write-only DDC paths, it
+/// keeps the existing fallback to software control on both surfaces (issue
+/// #1589). Either choice stays visible until cleared.
+struct SoftwareDimmingButton: View {
+    @ObservedObject private var l10n = L10n.shared
+    @ObservedObject private var service = BrightnessService.shared
+    let display: BrightnessDisplay
+    var compact = false
+
+    private var strings: BrightnessFeatureStrings { FeatureStrings.brightness(l10n.language) }
+    private var extendedChosen: Bool { service.extendedDimmingPreferred.contains(display.id) }
+    private var softwareChosen: Bool { service.softwareDimmingPreferred.contains(display.id) }
+    private var chosen: Bool { extendedChosen || softwareChosen }
+    private var usesExtendedDimming: Bool {
+        !softwareChosen && (extendedChosen || (display.method == .ddc && display.readable))
+    }
+
+    private var offered: Bool {
+        guard display.isActive, !display.isBuiltIn, display.canChooseDimming else { return false }
+        if chosen { return true }
+        guard display.method == .ddc else { return false }
+        // The panel keeps only the write-only way out; extra dimming is
+        // offered in Settings and joins the panel once it is on.
+        return !(compact && display.readable)
+    }
+
+    var body: some View {
+        if offered {
+            Button {
+                if usesExtendedDimming {
+                    service.setExtendedDimmingPreferred(!extendedChosen, for: display.id)
+                } else {
+                    service.setSoftwareDimmingPreferred(!softwareChosen, for: display.id)
+                }
+            } label: {
+                HStack(spacing: compact ? 4 : 5) {
+                    Image(systemName: chosen ? "checkmark.circle.fill" : "circle.lefthalf.filled")
+                        .font(.system(size: compact ? 9.5 : 11, weight: .semibold))
+                    Text(usesExtendedDimming ? strings.extendedDimming : strings.softwareDimming)
+                        .font(.system(size: compact ? 10 : 12, weight: .medium))
+                        .lineLimit(1)
+                }
+                .foregroundStyle(chosen ? Color.accentColor : Color.secondary)
+            }
+            .buttonStyle(.plain)
+            .disabled(service.isDisplayPending(display.id))
+            .accessibilityLabel("\(display.name): \(usesExtendedDimming ? strings.extendedDimming : strings.softwareDimming)")
+        }
     }
 }
 
@@ -213,5 +309,115 @@ func displayControlFailureText(_ failure: BrightnessService.DisplayControlFailur
     case .unavailable: return strings.switchUnavailable
     case .lastActive: return strings.lastDisplayCaption
     case .failed: return strings.switchFailed
+    case .closedLid: return strings.openLidToEnable
+    }
+}
+
+// MARK: - Display Resolution & HiDPI Controls
+
+struct DisplayResolutionRow: View {
+    @ObservedObject private var resolutionService = DisplayResolutionService.shared
+    @ObservedObject private var recoveryManager = DisplayRecoveryManager.shared
+    @ObservedObject private var l10n = L10n.shared
+    let displayID: CGDirectDisplayID
+
+    private var currentMode: DisplayResolutionMode? {
+        resolutionService.currentModePerDisplay[displayID]
+    }
+
+    private var modes: [DisplayResolutionMode] {
+        resolutionService.modesPerDisplay[displayID] ?? []
+    }
+
+    private var status: HiDPIStatus {
+        resolutionService.hiDPIStatusPerDisplay[displayID] ?? .none
+    }
+
+    var body: some View {
+        if let current = currentMode {
+            HStack(spacing: 6) {
+                // Resolution & Refresh rate menu
+                Menu {
+                    ForEach(modes) { mode in
+                        Button {
+                            resolutionService.applyMode(mode, for: displayID)
+                        } label: {
+                            HStack {
+                                if mode.id == current.id {
+                                    Image(systemName: "checkmark")
+                                }
+                                Text("\(mode.width) × \(mode.height)  ·  \(mode.refreshLabel)\(mode.isHiDPI ? " (HiDPI)" : "")")
+                            }
+                        }
+                    }
+                } label: {
+                    HStack(spacing: 3) {
+                        Text("\(current.width) × \(current.height)")
+                            .font(.system(size: 10, weight: .medium).monospacedDigit())
+                        Text("· \(current.refreshLabel)")
+                            .font(.system(size: 9.5).monospacedDigit())
+                            .foregroundStyle(.secondary)
+                        Image(systemName: "chevron.up.chevron.down")
+                            .font(.system(size: 8))
+                            .foregroundStyle(.tertiary)
+                    }
+                    .contentShape(Rectangle())
+                }
+                .menuStyle(.borderlessButton)
+                .fixedSize()
+                .disabled(recoveryManager.awaitingConfirmation)
+
+                Spacer(minLength: 4)
+
+                // HiDPI Status Badge
+                statusBadge(status)
+
+                // Quick HiDPI Toggle Button
+                Button {
+                    resolutionService.toggleHiDPI(for: displayID)
+                } label: {
+                    Image(systemName: status != .none ? "sparkles.tv" : "tv")
+                        .font(.system(size: 10.5, weight: .semibold))
+                        .foregroundStyle(status != .none ? AnyShapeStyle(Color.accentColor) : AnyShapeStyle(.secondary))
+                        .frame(width: 18, height: 18)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .disabled(recoveryManager.awaitingConfirmation)
+                .help(l10n.s.toggleHiDPICaption)
+            }
+            .padding(.leading, 22)
+            .padding(.top, 1)
+            .onAppear {
+                resolutionService.refresh()
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func statusBadge(_ status: HiDPIStatus) -> some View {
+        switch status {
+        case .native:
+            Text(l10n.s.nativeHiDPI)
+                .font(.system(size: 8.5, weight: .bold))
+                .foregroundStyle(.white)
+                .padding(.horizontal, 5)
+                .padding(.vertical, 1.5)
+                .background(Capsule().fill(Color.accentColor))
+        case .virtualMirror:
+            Text(l10n.s.virtualHiDPI)
+                .font(.system(size: 8.5, weight: .bold))
+                .foregroundStyle(.white)
+                .padding(.horizontal, 5)
+                .padding(.vertical, 1.5)
+                .background(Capsule().fill(Color.purple))
+        case .none:
+            Text(l10n.s.standardResolution)
+                .font(.system(size: 8.5, weight: .medium))
+                .foregroundStyle(.secondary)
+                .padding(.horizontal, 5)
+                .padding(.vertical, 1.5)
+                .background(Capsule().fill(Color.primary.opacity(0.08)))
+        }
     }
 }

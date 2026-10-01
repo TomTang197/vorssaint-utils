@@ -65,6 +65,16 @@ enum NotchNotificationSupport {
     static let bannerRoles: Set<String> = ["AXNotificationCenterAlert", "AXNotificationCenterBanner"]
     static let stackRoles: Set<String> = ["AXNotificationCenterAlertStack", "AXNotificationCenterBannerStack"]
     static let maximumItems = 50
+    /// A brief grace avoids cutting off short alert tones when closing the
+    /// original banner. This does not observe playback; longer sounds may stop.
+    static let nativeCloseGrace: TimeInterval = 1.2
+    /// Moving the window that holds a banner was measured on macOS 27, where
+    /// the center keeps its banners in one window it places again each time
+    /// it shows one. Earlier versions close the original after the grace.
+    static var movesNativeWindow: Bool {
+        if #available(macOS 27, *) { return true }
+        return false
+    }
 
     /// Resolve only an unambiguous installed source. Formatting marks used by
     /// localized app labels are not part of the application's name.
@@ -81,6 +91,16 @@ enum NotchNotificationSupport {
             names.contains { label(app.name).compare($0, options: .caseInsensitive) == .orderedSame }
         }.map(\.bundleIdentifier))
         return matches.count == 1 ? matches.first : nil
+    }
+
+    /// Many messages arrive while their app is closed, so installed apps can
+    /// name a source too. A running match wins; otherwise the name must stay
+    /// unambiguous across both lists.
+    static func sourceBundleIdentifier(for names: [String],
+                                       running: [(name: String, bundleIdentifier: String)],
+                                       installed: [(name: String, bundleIdentifier: String)]) -> String? {
+        sourceBundleIdentifier(for: names, applications: running)
+            ?? sourceBundleIdentifier(for: names, applications: running + installed)
     }
 
     /// Native formatted descriptions include the app before the same labelled
@@ -137,5 +157,66 @@ enum NotchNotificationSupport {
               identifier.range(of: "[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}",
                                options: .regularExpression) != nil else { return nil }
         return identifier
+    }
+}
+
+/// The banner beside the camera: the app's icon and title on one side, the
+/// message on the other. Both sides take the width the longer one needs, so
+/// a short message leaves no band of empty black at the ends, while a long
+/// one keeps the widest banner and wraps or truncates within it.
+enum NotchNotificationBannerLayout {
+    static let iconSize: CGFloat = 22
+    static let spacing: CGFloat = 8
+    static let wingRange: ClosedRange<CGFloat> = 88...190
+    /// The inset from the island's curved end, and a little air so the
+    /// fitted text never truncates where SwiftUI rounds its width.
+    static let inset: CGFloat = 16
+    static let air: CGFloat = 6
+    /// The fonts the banner draws with, so it is measured in the same ones.
+    static let titleFont = NSFont.systemFont(ofSize: 11, weight: .semibold)
+    static let messageFont = NSFont.systemFont(ofSize: 11)
+
+    static func wing(for content: NotchNotificationContent) -> CGFloat {
+        func width(_ text: String, _ font: NSFont) -> CGFloat {
+            // A line or two is all the banner shows, and the widest wing is
+            // reached long before this much text.
+            (String(text.prefix(240)) as NSString).size(withAttributes: [.font: font]).width.rounded(.up)
+        }
+        let title = iconSize + spacing + width(content.compactTitle, titleFont)
+        let detail = width(content.compactDetail, messageFont)
+        return min(wingRange.upperBound, max(wingRange.lowerBound, max(title, detail) + inset + air))
+    }
+}
+
+/// The held preview is sized from the same fonts and line limits it draws
+/// with, so the island fits the message rather than scrolling or padding it.
+enum NotchNotificationPreviewLayout {
+    static let iconSize: CGFloat = 26
+    static let headerHeight: CGFloat = 28
+    static let spacing: CGFloat = 8
+    static let actionHeight: CGFloat = 28
+    static let titleFont = NSFont.systemFont(ofSize: 14, weight: .semibold)
+    static let subtitleFont = NSFont.systemFont(ofSize: 13, weight: .medium)
+    static let bodyFont = NSFont.systemFont(ofSize: 13)
+    static let titleLines = 2
+    static let subtitleLines = 1
+    static let bodyLines = 6
+
+    static func contentHeight(for content: NotchNotificationContent, width: CGFloat) -> CGFloat {
+        let blocks = [textHeight(content.title, font: titleFont, lines: titleLines, width: width),
+                      textHeight(content.subtitle, font: subtitleFont, lines: subtitleLines, width: width),
+                      textHeight(content.body, font: bodyFont, lines: bodyLines, width: width)].filter { $0 > 0 }
+        return headerHeight + (blocks + [actionHeight]).reduce(0) { $0 + spacing + $1 }
+    }
+
+    static func textHeight(_ text: String, font: NSFont, lines: Int, width: CGFloat) -> CGFloat {
+        guard !text.isEmpty, width > 0 else { return 0 }
+        let line = ceil(font.ascender - font.descender + font.leading)
+        let measured = (text as NSString).boundingRect(
+            with: CGSize(width: width, height: .greatestFiniteMagnitude),
+            options: [.usesLineFragmentOrigin, .usesFontLeading], attributes: [.font: font]).height
+        // Layout may round a wrapped line differently; a point of slack keeps
+        // the last line inside the island instead of under its edge.
+        return min(ceil(measured) + 1, line * CGFloat(max(1, lines)) + 1)
     }
 }

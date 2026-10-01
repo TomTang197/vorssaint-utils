@@ -26,6 +26,10 @@ struct NotchArtworkTint: Equatable {
 }
 
 struct NotchPlayback: Equatable {
+    /// How long a song stays shown after a reading finds nothing playing,
+    /// which a player moving on to its next song can report for a moment.
+    static let gapGracePeriod: TimeInterval = 1.5
+
     let track: RadialNowPlayingSnapshot
     let isPlaying: Bool
     let elapsed: TimeInterval
@@ -37,6 +41,9 @@ struct NotchPlayback: Equatable {
     var itemIdentifier: String? = nil
     var commandContext: NotchPlaybackContext? = nil
     var canSendCommandsDirectly = false
+    /// Nil when the player's commands could not be read.
+    var canSkipNext: Bool? = nil
+    var canSkipPrevious: Bool? = nil
 
     func position(at date: Date) -> TimeInterval {
         min(duration, max(0, elapsed + (isPlaying ? max(0, date.timeIntervalSince(sampledAt)) * rate : 0)))
@@ -78,6 +85,134 @@ struct NotchPlayback: Equatable {
                                 .map { $0.doubleValue.isFinite && $0.doubleValue >= 0 } == true,
                              itemIdentifier: reply.info["itemIdentifier"] as? String,
                              commandContext: commandContext?.pid == track.appPID ? commandContext : nil,
-                             canSendCommandsDirectly: canSendCommandsDirectly)
+                             canSendCommandsDirectly: canSendCommandsDirectly,
+                             canSkipNext: reply.info["canSkipNext"] as? Bool,
+                             canSkipPrevious: reply.info["canSkipPrevious"] as? Bool)
+    }
+}
+
+/// Keeps one decoded cover in memory. Metadata-only updates of the same song
+/// retain it; a new song gets a short grace period while its artwork arrives.
+/// The deadline never moves with repeated missing-artwork replies.
+/// A player can report a new song before replacing the old cover. The same
+/// bytes on a new song stay visible, but become its own cover only if no
+/// missing-artwork reply follows within that song's grace period.
+struct NotchArtworkCache<Artwork> {
+    static var transitionDuration: TimeInterval { 1.5 }
+    private struct Identity: Equatable {
+        let pid: Int32?
+        let bundle: String?
+        let item: String?
+        let title: String?
+        let artist: String?
+        let album: String?
+
+        init(_ playback: NotchPlayback) {
+            pid = playback.track.appPID
+            bundle = playback.track.appBundleIdentifier
+            item = playback.itemIdentifier
+            title = playback.track.title
+            artist = playback.track.artist
+            album = playback.track.album
+        }
+    }
+
+    private var identity: Identity?
+    private var artworkData: Data?
+    private var inheritedUntil: Date?
+    private(set) var artwork: Artwork?
+    private(set) var expiresAt: Date?
+
+    mutating func update(_ incoming: Artwork?, for playback: NotchPlayback?, now: Date = Date()) {
+        guard let playback else { self = Self(); return }
+        let next = Identity(playback)
+        if identity?.pid != next.pid || identity?.bundle != next.bundle { self = Self() }
+        if identity != next || inheritedUntil.map({ now >= $0 }) == true { inheritedUntil = nil }
+        if let incoming {
+            if artworkData == nil || playback.track.artworkData != artworkData {
+                inheritedUntil = nil
+            } else if identity != next {
+                inheritedUntil = now.addingTimeInterval(Self.transitionDuration)
+            }
+            artwork = incoming
+            identity = next
+            artworkData = playback.track.artworkData
+            expiresAt = nil
+        } else if identity == next, inheritedUntil == nil {
+            expiresAt = nil
+        } else if artwork != nil {
+            if expiresAt == nil { expiresAt = inheritedUntil ?? now.addingTimeInterval(Self.transitionDuration) }
+            expire(at: now)
+        }
+    }
+
+    mutating func expire(at now: Date = Date()) {
+        guard let expiresAt, now >= expiresAt else { return }
+        self = Self()
+    }
+}
+
+/// Tells a new song from the updates a playing one keeps sending. A player
+/// reports its song again for every pause, seek and cover, can fill in the
+/// artist a moment after the title, and a reader that starts or changes source
+/// first reports what was already on; none of that is a new song. Each player
+/// keeps its own song, so another one standing in between tracks changes
+/// nothing, and a song counts once it plays: some players report the next one
+/// paused for a moment before it starts.
+struct NotchTrackChange {
+    private struct Song {
+        let title: String
+        let artist: String?
+
+        /// A reading without the artist still names the same song.
+        func matches(_ other: Song) -> Bool {
+            title == other.title && (artist == nil || other.artist == nil || artist == other.artist)
+        }
+    }
+
+    private var songs: [String: Song] = [:]
+
+    /// Whether `playback` is a player moving on to another song. `first` marks
+    /// the first reading since the reader started or changed source, which
+    /// only sets where each player is.
+    mutating func isNewSong(_ playback: NotchPlayback?, first: Bool) -> Bool {
+        guard let playback, let player = Self.player(of: playback), let song = Self.song(of: playback) else { return false }
+        guard !first else { songs[player] = song; return false }
+        guard playback.isPlaying else { return false }
+        guard let previous = songs.updateValue(song, forKey: player) else { return false }
+        return !previous.matches(song)
+    }
+
+    /// Whether `next`, read after `current`, can be a player between songs:
+    /// nothing playing, or a song that is not playing and is not the one that
+    /// played, such as another player's paused song standing in or the next
+    /// song reported before it starts. The same song paused is a pause. So is
+    /// another player's song while the player that played still lists a song
+    /// in `sources`, since that player was paused and automatic playback moved
+    /// to the other.
+    static func isBetweenSongs(_ next: NotchPlayback?, after current: NotchPlayback,
+                               sources: [NotchPlaybackSource] = []) -> Bool {
+        guard let next else { return true }
+        guard current.isPlaying, !next.isPlaying else { return false }
+        guard let player = Self.player(of: next), player == Self.player(of: current) else {
+            return !sources.contains { $0.pid == current.track.appPID && $0.hasTrack }
+        }
+        guard let song = Self.song(of: next), let played = Self.song(of: current) else { return true }
+        return !song.matches(played)
+    }
+
+    mutating func reset() { songs = [:] }
+
+    private static func player(of playback: NotchPlayback) -> String? {
+        playback.track.appBundleIdentifier ?? playback.track.appPID.map(String.init)
+    }
+
+    private static func song(of playback: NotchPlayback) -> Song? {
+        cleaned(playback.track.title).map { Song(title: $0, artist: cleaned(playback.track.artist)) }
+    }
+
+    private static func cleaned(_ text: String?) -> String? {
+        guard let text = text?.trimmingCharacters(in: .whitespacesAndNewlines), !text.isEmpty else { return nil }
+        return text
     }
 }
